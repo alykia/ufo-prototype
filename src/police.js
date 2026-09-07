@@ -135,19 +135,19 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast, o
         if (suspicion >= 100 && !surrounding) {
             surrounding = true;
             surroundT = 0;
-            toast("UFO SPOTTED", "bad");
+            toast("UFO SPOTTED", "bad", "police");
         }
 
         const held = cars.filter((c) => !c.leaving).length;
         const want = wantedCount(suspicion, surrounding, held);
         if (want >= BALANCE.policeCount80 && !announced80) {
             announced80 = true;
-            toast("POLICE INBOUND", "warn");
+            toast("INBOUND", "warn", "police");
             if (onCall) onCall();
         }
         if (want >= BALANCE.policeCount90 && !announced90) {
             announced90 = true;
-            toast("POLICE REINFORCEMENTS", "bad");
+            toast("REINFORCEMENTS", "bad", "police");
             if (onCall) onCall();
         }
         if (want === 0) {

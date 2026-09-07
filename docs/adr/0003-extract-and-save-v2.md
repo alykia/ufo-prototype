@@ -19,3 +19,7 @@ Persistent data lives at `ufo-greybox-save-v2`. v1 is ignored except `soundOn`.
 ## Consequences
 
 Old Power/Beam/stage progress is discarded on purpose. Players keep their sound toggle. Debug and delete-progress both target v2 only.
+
+## Amended 2026-09-07
+
+Quota completion now ends the Expedition immediately as a success and banks Session Research. Extract remains the player-chosen early end (quota missed = failed). Suspicion 100% remains the forced end. The save key stays `ufo-greybox-save-v2`; Onboarding state is added to it with defaults, not a new key.

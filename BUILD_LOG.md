@@ -322,3 +322,68 @@ Files Changed:
 - src/balance.js
 - BUILD_LOG.md
 
+## Iteration 003 — Onboarding and Bridge voice
+
+Date:
+2026-09-07
+
+AI Tool:
+Cursor
+
+Goal:
+Give a fresh save a Bridge-guided first Expedition and first UFO Management visit that teach every core rule without walls of text, then follow up with one-shot Tips for concepts that appear later. Tighten the Bridge's result-screen voice and extend it to failed and detected results.
+
+Grilled decisions locked in this iteration:
+- Onboarding covers move + hold-to-beam, Abduction, Expedition Goal, Quota, Too Heavy, Suspicion, EXTRACT, result, Management upgrade, NEXT EXPEDITION. Sites, INDEX and SHOP are hidden on a fresh save and revealed after the first NEXT EXPEDITION.
+- The first Expedition is a scripted Training Expedition on the Farm: Quota 60, Expedition Goal CHICKEN ×5, field seeded with 6 chickens + 2 frogs, tier-1 living spawns only, one scripted cow placed ahead of the UFO so TOO HEAVY fires once, a one-off +25% Suspicion on that TOO HEAVY so the eye visibly fills, Bigfoot suppressed, Goal banner replaced by a Bridge beat.
+- Three bubble modes: gate (bubble stays until the action happens, world runs), pause (world frozen via STATE.ONBOARDING; tap after the text finishes or a 4.5s timer dismisses), note (non-blocking, 3s). Action-gated beats never advance by reading.
+- SKIP from beat 2 onward silences the remaining beats but keeps the training field; Tips stay enabled. REPLAY TUTORIAL lives in title Settings; RESTART / DELETE PROGRESS also replay because they wipe the flag.
+- Training Research banks normally and Discoveries count; success/fail counters are not incremented. A one-time floor tops Banked Research up to 40 so the guided Management visit can always afford one upgrade.
+- The Bridge speaks as a collective "we". Rule: confidently wrong about Earth, never wrong about the controls. One idea per bubble, ~14 words.
+- Tips (once per save): first Police call and first Bigfoot pause the world; Town/Zoo unlock and Scanner high-value glow are non-blocking; the first failed and first detected result speak the Tip line through the result screen's own Bridge bubble; a "New buttons" Tip fires on the first title visit after Onboarding.
+- Glossary rulings recorded in CONTEXT.md: Quota completion ends the Expedition (ADR 0003 amended); the Capture Zone is active only while the Joystick is held; Police, Site, Expedition Goal, Pickup, Discovery, Index, Bridge, Onboarding, Training Expedition and Tip are canonical terms. Goal banner kicker renamed THIS EXPEDITION.
+
+Decisions Locked:
+
+- Onboarding state stored in save v2 under `onboarding` (done, skipped, floorUsed, seenTips); saves that predate it and have played are treated as done
+- new STATE.ONBOARDING for held world; Settings opened during a hold returns to the hold
+- Joystick is not released on hold, so a held finger resumes movement on dismiss
+- Pickup cards freeze while the world is held
+- NEXT EXPEDITION is disabled during training until one upgrade is bought
+- Bridge bubble docks under the HUD (or under the Management status row); highlight ring tracks its anchor every frame
+- `sessionQuips.js` replaced by `bridgeQuips.js` with success / failed / detected pools; end screen gets the alien and a quip
+
+What Was Built:
+`src/onboarding.js` beat engine (bubble, typewriter, TAP/SKIP, ring, dim, Tips), `src/bridgeLines.js` copy, `src/bridgeQuips.js` result quips, `onboarding` block in `src/persist.js`, training tunables in `src/balance.js`, `onOpen` hook in `src/management.js`, `setFrozen` in `src/pickups.js`, hooks throughout `src/main.js` (training setup, spawns, Too Heavy, abduction, extract unlock, expedition end, floor, management gate, Tips, progressive title disclosure, REPLAY TUTORIAL, debug readout `window.__ufoDebug` behind the D overlay), bubble/ring/dim markup and CSS plus end-screen Bridge in `index.html`.
+
+Files Created / Changed:
+- src/onboarding.js (new)
+- src/bridgeLines.js (new)
+- src/bridgeQuips.js (new; replaces src/sessionQuips.js)
+- src/main.js
+- src/persist.js
+- src/balance.js
+- src/management.js
+- src/pickups.js
+- index.html
+- CONTEXT.md
+- docs/adr/0003-extract-and-save-v2.md (amended)
+- BUILD_LOG.md
+
+Testing:
+- `node --check` on every module; static server; no external URLs
+- Headless Chrome CDP playthrough at 390×844 and 320×640 driving the real Joystick: fresh title shows only PLAY/SETTINGS; PLAY → welcome card pauses the world; hold-and-drag fires move → beam → first Abduction → pickup/goal/quota pauses; scripted cow → TOO HEAVY (+25%) → Suspicion beat; EXTRACT note at lockout end; Quota 60 → training result line → Management gate → ringed cheapest hotspot → UPGRADE → NEXT EXPEDITION enabled → normal Expedition (Quota 120, Goal banner, no bubbles, `onboarding.done` persisted)
+- Early EXTRACT on a normal run: end screen shows the alien and the failed Tip line once; no second floating bubble
+- Title after Onboarding: Sites/INDEX/SHOP revealed with the "New buttons" Tip; REPLAY TUTORIAL present only in title Settings, restarts training and keeps Banked Research; SKIP hides bubbles, keeps quota 60, persists `skipped`
+- Settings during a paused beat hides the bubble and returns to the pause on CLOSE
+- Early EXTRACT during training floors Banked Research to 40 and shows the floor line; an upgrade is affordable
+- Bubble stays above the 62% Joystick zone at both sizes; zero console errors
+
+Issues / Observations:
+- Pause beats auto-dismiss 4.5s after the text finishes so the game can never stall; there is no way to hold a bubble open, so raise the timer if playtests show slow readers losing lines.
+- The `mid` bubble placement (Pickup beat) sits slightly inside the Joystick zone on very short screens; it only appears during a pause, where the Joystick is inert.
+- No audio; the alien mouth animation is the only "speech" cue.
+
+Next Iteration:
+Playtest the Training Expedition with real new players. Tune line lengths, the 4.5s auto-dismiss, the +25% Suspicion bump, and whether Quota 60 finishes inside two minutes.
+

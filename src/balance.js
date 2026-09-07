@@ -100,6 +100,16 @@ export const BALANCE = {
     goalBonusMin: 20,
     goalBonusStep: 5,
 
+    // Training Expedition (Onboarding)
+    trainingQuota: 60,
+    trainingGoalNeed: 5,
+    trainingSeedChickens: 6,
+    trainingSeedFrogs: 2,
+    trainingCowDistance: 1.6,
+    trainingSuspicionBump: 25,
+    trainingSuspicionBeatAt: 25,
+    trainingFloor: 40,
+
     toastDuration: 1.3,
     pickupDuration: 2.2,
     pickupHoldCommon: 0.38,

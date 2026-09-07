@@ -1,4 +1,5 @@
 import { BALANCE } from "./balance.js";
+import { specimenEmoji, specimenVectorSrc, uiIcon } from "./uiIcons.js";
 
 function hex(n) {
     return `#${n.toString(16).padStart(6, "0")}`;
@@ -67,14 +68,16 @@ function iconSvg(def) {
 }
 
 export function specimenIcon(def) {
-    return iconSvg(def || { id: "?", colour: 0x333333 });
-}
-
-function flaskSvg() {
-    return `<svg class="pickup-flask" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M9 2h6v2h-1.2v4.4l5.3 9.6A3.2 3.2 0 0 1 16.3 23H7.7a3.2 3.2 0 0 1-2.8-4.9l5.3-9.6V4H9V2z" fill="#3ec8ff"/>
-      <path d="M8.2 16.2h7.6c.6 1.2.5 2.6-.4 3.6H8.6c-.9-1-.9-2.4-.4-3.6z" fill="#7adcff"/>
-    </svg>`;
+    const safe = def || { id: "?", colour: 0x333333, label: "" };
+    const emoji = specimenEmoji(safe.id);
+    if (emoji) {
+        return `<span class="spec-emoji" aria-hidden="true">${emoji}</span>`;
+    }
+    const vector = specimenVectorSrc(safe.id);
+    if (vector) {
+        return `<img class="spec-icon" src="${vector}" alt="${safe.label || ""}" draggable="false" />`;
+    }
+    return iconSvg(safe);
 }
 
 function rarityOf(def) {
@@ -93,10 +96,10 @@ function cardHtml(def) {
     const rarity = rarityOf(def);
     return `
       <div class="pickup-glow"><div class="pickup-glow-tex"></div></div>
-      <div class="pickup-art">${iconSvg(def)}</div>
+      <div class="pickup-art">${specimenIcon(def)}</div>
       <div class="pickup-caption">
         <div class="pickup-name">${def.label}</div>
-        <div class="pickup-gain"><span>+${def.researchValue}</span>${flaskSvg()}</div>
+        <div class="pickup-gain"><span>+${def.researchValue}</span>${uiIcon("research", "pickup-flask")}</div>
       </div>
     `.trim();
 }
@@ -121,6 +124,7 @@ export function bindPickups(root) {
     let holdTimer = 0;
     let hideTimer = 0;
     let busy = false;
+    let frozen = false;
 
     function paint(el, def, extraClass = "") {
         el.className = `pickup-card ${extraClass}`.trim();
@@ -180,10 +184,11 @@ export function bindPickups(root) {
         syncPeek();
 
         clearTimeout(holdTimer);
-        holdTimer = window.setTimeout(advance, holdSeconds(def, queue.length) * 1000);
+        if (!frozen) holdTimer = window.setTimeout(advance, holdSeconds(def, queue.length) * 1000);
     }
 
     function advance() {
+        if (frozen) return;
         if (!queue.length) {
             busy = false;
             current = null;
@@ -222,9 +227,19 @@ export function bindPickups(root) {
         hide();
     }
 
+    // While the world is held (Onboarding pause), keep the current card on screen.
+    function setFrozen(on) {
+        frozen = Boolean(on);
+        clearTimeout(holdTimer);
+        clearTimeout(hideTimer);
+        if (!frozen && current) {
+            holdTimer = window.setTimeout(advance, holdSeconds(current, queue.length) * 1000);
+        }
+    }
+
     root.classList.add("hidden");
     root.addEventListener("queue-pickup", (ev) => {
         if (ev.detail) show(ev.detail);
     });
-    return { show, clear };
+    return { show, clear, setFrozen };
 }

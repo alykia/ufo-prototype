@@ -1,5 +1,6 @@
 import { upgradeCost } from "./balance.js";
 import { systemCap } from "./maps.js";
+import { uiIcon } from "./uiIcons.js";
 
 const SYSTEM_META = {
     scanner: { title: "SCANNER ARRAY", body: "Rarer, richer finds." },
@@ -23,7 +24,7 @@ function nextBlurb(system, level, cap) {
     return "Next: +speed";
 }
 
-export function bindManagement({ els, getPersist, onUpgrade, onNext }) {
+export function bindManagement({ els, getPersist, onUpgrade, onNext, onOpen }) {
     let openSystem = null;
 
     const GROWTH_IDS = {
@@ -39,19 +40,19 @@ export function bindManagement({ els, getPersist, onUpgrade, onNext }) {
             const node = els.saucer.querySelector(`[data-system="${key}"]`);
             if (!node) continue;
             node.dataset.level = String(upgrades[key]);
-            node.querySelector(".hot-lv").textContent = `LV ${upgrades[key]}`;
+            node.querySelector(".hot-lv").textContent = String(upgrades[key]);
             const extras = document.getElementById(GROWTH_IDS[key]);
             if (extras) extras.dataset.level = String(upgrades[key]);
         }
     }
 
     function paintStatus(p) {
-        els.banked.textContent = `BANKED ${p.bankedResearch}`;
-        els.statCore.textContent = `MASS ${p.upgrades.core}`;
-        els.statBeam.textContent = `BEAM ${p.upgrades.beam}`;
-        els.statCloak.textContent = `STEALTH ${p.upgrades.cloak}`;
-        els.statProp.textContent = `SPEED ${p.upgrades.propulsion}`;
-        els.statScan.textContent = `SCAN ${p.upgrades.scanner}`;
+        els.banked.innerHTML = `${uiIcon("research")}${p.bankedResearch}`;
+        els.statCore.innerHTML = `${uiIcon("core")}${p.upgrades.core}`;
+        els.statBeam.innerHTML = `${uiIcon("beam")}${p.upgrades.beam}`;
+        els.statCloak.innerHTML = `${uiIcon("cloak")}${p.upgrades.cloak}`;
+        els.statProp.innerHTML = `${uiIcon("propulsion")}${p.upgrades.propulsion}`;
+        els.statScan.innerHTML = `${uiIcon("scanner")}${p.upgrades.scanner}`;
     }
 
     function paintPanel(p) {
@@ -64,17 +65,19 @@ export function bindManagement({ els, getPersist, onUpgrade, onNext }) {
         const cost = upgradeCost(openSystem, lv, cap);
         const meta = SYSTEM_META[openSystem];
         els.panel.classList.remove("hidden");
-        els.panelTitle.textContent = meta.title;
+        els.panelTitle.innerHTML = `${uiIcon(openSystem)}${meta.title}`;
         els.panelBody.textContent = `${meta.body} ${nextBlurb(openSystem, lv, cap)}`;
         if (cost == null) {
-            els.panelCost.textContent = "MAXED";
+            els.panelCost.innerHTML = `${uiIcon("check")} MAXED`;
             els.upgradeBtn.disabled = true;
-            els.upgradeBtn.textContent = "MAXED";
+            els.upgradeBtn.innerHTML = `${uiIcon("check")} MAXED`;
         } else {
-            els.panelCost.textContent = `COST ${cost}`;
+            els.panelCost.innerHTML = `${uiIcon("research")} ${cost}`;
             const afford = p.bankedResearch >= cost;
             els.upgradeBtn.disabled = !afford;
-            els.upgradeBtn.textContent = afford ? "UPGRADE" : "CAN'T AFFORD";
+            els.upgradeBtn.innerHTML = afford
+                ? `${uiIcon("upgrade")} UPGRADE`
+                : "CAN'T AFFORD";
         }
     }
 
@@ -101,6 +104,7 @@ export function bindManagement({ els, getPersist, onUpgrade, onNext }) {
         btn.addEventListener("click", () => {
             openSystem = btn.dataset.system;
             refresh();
+            if (onOpen) onOpen(openSystem);
         });
     });
 

@@ -12,7 +12,33 @@ export function defaultPersistent() {
         successfulExpeditions: 0,
         failedExpeditions: 0,
         hasPlayed: false,
+        onboarding: defaultOnboarding(),
         settings: { soundOn: true },
+    };
+}
+
+export function defaultOnboarding() {
+    return { done: false, skipped: false, floorUsed: false, seenTips: [] };
+}
+
+function validateOnboarding(raw, hasPlayed) {
+    const base = defaultOnboarding();
+    if (!raw || typeof raw !== "object") {
+        // Saves written before Onboarding existed: a player who has already
+        // played is not a new player. They can REPLAY TUTORIAL from Settings.
+        if (hasPlayed) {
+            base.done = true;
+            base.seenTips.push("menuReveal");
+        }
+        return base;
+    }
+    return {
+        done: Boolean(raw.done),
+        skipped: Boolean(raw.skipped),
+        floorUsed: Boolean(raw.floorUsed),
+        seenTips: Array.isArray(raw.seenTips)
+            ? raw.seenTips.filter((id) => typeof id === "string")
+            : [],
     };
 }
 
@@ -51,6 +77,7 @@ function validate(raw) {
         successfulExpeditions: Math.max(0, Number(raw.successfulExpeditions) || 0),
         failedExpeditions: Math.max(0, Number(raw.failedExpeditions) || 0),
         hasPlayed: Boolean(raw.hasPlayed),
+        onboarding: validateOnboarding(raw.onboarding, Boolean(raw.hasPlayed)),
         settings: {
             soundOn: raw.settings && typeof raw.settings.soundOn === "boolean"
                 ? raw.settings.soundOn

@@ -1,5 +1,7 @@
 import { BLURBS } from "./blurbs.js";
 import { TARGETS } from "./targets.js";
+import { MAPS, MAP_ORDER } from "./maps.js";
+import { uiIcon } from "./uiIcons.js";
 
 export function bindIndexBook({ root, getPersist, specimenIcon }) {
     const grid = root.querySelector("#index-grid");
@@ -8,9 +10,8 @@ export function bindIndexBook({ root, getPersist, specimenIcon }) {
     const detailName = root.querySelector("#index-detail-name");
     const detailBlurb = root.querySelector("#index-detail-blurb");
 
-    function entries(p) {
-        const unlocked = new Set(p.unlockedMaps);
-        return TARGETS.filter((d) => (d.maps || ["farm"]).some((m) => unlocked.has(m)));
+    function targetsFor(mapId) {
+        return TARGETS.filter((d) => (d.maps || ["farm"]).includes(mapId));
     }
 
     function openDetail(def) {
@@ -20,22 +21,51 @@ export function bindIndexBook({ root, getPersist, specimenIcon }) {
         detail.classList.remove("hidden");
     }
 
+    function makeCell(def, known) {
+        const cell = document.createElement(known ? "button" : "div");
+        if (known) cell.type = "button";
+        cell.className = `index-cell${known ? "" : " locked"}`;
+        cell.innerHTML = `
+          <div class="index-art">${specimenIcon(def)}</div>
+          <div class="index-name">${known ? def.label : uiIcon("lock", "index-lock")}</div>
+        `;
+        if (known) cell.addEventListener("click", () => openDetail(def));
+        return cell;
+    }
+
     function paint() {
         const p = getPersist();
         const found = new Set(p.discoveredSpecimens);
+        const unlocked = new Set(p.unlockedMaps);
         detail.classList.add("hidden");
         grid.innerHTML = "";
-        for (const def of entries(p)) {
-            const known = found.has(def.id);
-            const cell = document.createElement(known ? "button" : "div");
-            if (known) cell.type = "button";
-            cell.className = `index-cell${known ? "" : " locked"}`;
-            cell.innerHTML = `
-              <div class="index-art">${specimenIcon(def)}</div>
-              <div class="index-name">${known ? def.label : "???"}</div>
+
+        for (const mapId of MAP_ORDER) {
+            const map = MAPS[mapId];
+            const open = unlocked.has(mapId);
+            const defs = targetsFor(mapId);
+            const knownCount = defs.filter((d) => found.has(d.id)).length;
+
+            const section = document.createElement("section");
+            section.className = `index-section${open ? "" : " locked"}`;
+            section.innerHTML = `
+              <div class="index-section-head">
+                ${uiIcon(mapId, "index-section-icon")}
+                <h3>${map.label}</h3>
+                ${open
+                    ? `<span class="index-section-count">${knownCount}/${defs.length}</span>`
+                    : uiIcon("lock", "index-section-lock")}
+              </div>
             `;
-            if (known) cell.addEventListener("click", () => openDetail(def));
-            grid.appendChild(cell);
+
+            if (open) {
+                const cells = document.createElement("div");
+                cells.className = "index-section-grid";
+                for (const def of defs) cells.appendChild(makeCell(def, found.has(def.id)));
+                section.appendChild(cells);
+            }
+
+            grid.appendChild(section);
         }
     }
 
