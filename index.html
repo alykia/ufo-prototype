@@ -488,7 +488,7 @@
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.045); }
     }
-    #modal, #end-screen, #confirm, #management {
+    #modal, #end-screen, #confirm, #management, #research-success {
       position: absolute;
       inset: 0;
       z-index: 8;
@@ -507,7 +507,8 @@
     }
     #modal.hidden, #end-screen.hidden, #confirm.hidden, #debug.hidden,
     #alert-frame.hidden, #red-alert.hidden, #management.hidden,
-    #upgrade-panel.hidden, #index-book.hidden, #index-detail.hidden, #goal-banner.hidden { display: none; }
+    #upgrade-panel.hidden, #index-book.hidden, #index-detail.hidden, #goal-banner.hidden,
+    #research-success.hidden, #research-info.hidden { display: none; }
     .panel {
       width: min(100%, 320px);
       max-height: 92%;
@@ -557,7 +558,219 @@
     #end-screen p { margin: 6px 0; font-size: 13px; color: #d5dccc; }
     #end-stats { text-align: left; font-size: 12px; line-height: 1.55; white-space: pre-wrap; }
     .end-actions { display: grid; gap: 8px; margin-top: 12px; }
-    #open-management, #menu-play { background: #d6ff6a; color: #14200a; border: 0; }
+    #open-management, #menu-play, #research-continue { background: #d6ff6a; color: #14200a; border: 0; }
+    #research-success {
+      flex-direction: column;
+      z-index: 9;
+    }
+    .research-panel {
+      width: min(100%, 320px);
+      max-height: 92%;
+      display: flex;
+      flex-direction: column;
+    }
+    #research-stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px 12px;
+      margin: 8px 0 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #d6ff6a;
+    }
+    #research-police-stat { color: #ff8a8a; }
+    #research-stats, #research-bridge, #research-continue, .research-panel h2, .research-panel .hint {
+      flex-shrink: 0;
+    }
+    #research-bridge {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      margin: 4px 0 10px;
+    }
+    #research-bubble {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      background: #eef4e2;
+      color: #14200a;
+      border-radius: 16px 16px 4px 16px;
+      padding: 8px 12px 10px;
+      box-shadow: 0 2px 0 #8aa06a;
+    }
+    .research-bubble-tail {
+      position: absolute;
+      right: -7px;
+      bottom: 14px;
+      width: 14px;
+      height: 14px;
+      background: #eef4e2;
+      transform: rotate(45deg);
+      border-radius: 2px;
+    }
+    .research-quip-kicker {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: #4a6a20;
+      margin-bottom: 3px;
+    }
+    #research-quip {
+      font-size: 13px;
+      line-height: 1.35;
+      color: #14200a;
+      font-style: italic;
+      margin: 0;
+      text-align: left;
+    }
+    #bridge-alien {
+      width: 62px;
+      height: 72px;
+      flex: 0 0 62px;
+    }
+    #bridge-alien svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    .alien-body {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: alien-bob 1.4s ease-in-out infinite;
+    }
+    .alien-mouth {
+      transform-box: fill-box;
+      transform-origin: 50% 20%;
+      animation: alien-talk 0.26s ease-in-out infinite;
+    }
+    @keyframes alien-talk {
+      0%, 100% { transform: scaleY(0.28); }
+      35% { transform: scaleY(1.2); }
+      55% { transform: scaleY(0.45); }
+      78% { transform: scaleY(1.05); }
+    }
+    @keyframes alien-bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-1.5px); }
+    }
+    #research-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 8px 0 12px;
+      flex: 1;
+      min-height: 80px;
+      max-height: 36vh;
+      overflow: auto;
+    }
+    .research-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #1a2030;
+      border: 1px solid #3a4458;
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+    .research-art {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 36px;
+    }
+    .research-art svg { width: 100%; height: 100%; display: block; }
+    .research-meta { flex: 1; min-width: 0; text-align: left; }
+    .research-name {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+    }
+    .research-count {
+      font-size: 11px;
+      font-weight: 800;
+      color: #d6ff6a;
+    }
+    .research-new {
+      flex: 0 0 auto;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      color: #14200a;
+      background: #d6ff6a;
+      border-radius: 999px;
+      padding: 3px 6px;
+    }
+    .research-info-btn {
+      flex: 0 0 32px;
+      width: 32px;
+      height: 32px;
+      min-height: 32px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid #7ad8ff;
+      background: #1a3040;
+      color: #7ad8ff;
+      font-size: 14px;
+      font-weight: 900;
+      font-style: italic;
+      cursor: pointer;
+    }
+    #research-continue {
+      width: 100%;
+      min-height: 48px;
+      border-radius: 8px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+    }
+    #research-info {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(4, 6, 12, 0.78);
+    }
+    .research-info-card {
+      position: relative;
+      width: min(100%, 280px);
+      background: #141822;
+      border: 1px solid #3a4458;
+      border-radius: 12px;
+      padding: 28px 14px 14px;
+      text-align: center;
+    }
+    #research-info-close {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 36px;
+      height: 36px;
+      min-height: 36px;
+      padding: 0;
+      border: 1px solid #4a5064;
+      background: #262a36;
+      color: inherit;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    #research-info-art {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 8px;
+    }
+    #research-info-art svg { width: 100%; height: 100%; display: block; }
+    #research-info-name {
+      font-size: 15px;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+    #research-info-blurb {
+      font-size: 13px;
+      line-height: 1.45;
+      color: #c9d6c0;
+    }
     #menu {
       position: absolute;
       inset: 0;
@@ -1010,6 +1223,47 @@
         <p class="hint" id="confirm-hint">Banked Research, UFO systems, maps, discoveries and best stats will be wiped. Sound setting is kept.</p>
         <button id="confirm-cancel" type="button">CANCEL</button>
         <button id="confirm-delete" type="button">RESTART</button>
+      </div>
+    </div>
+    <div id="research-success" class="hidden">
+      <div class="panel research-panel">
+        <h2>RESEARCH SUCCESSFUL</h2>
+        <p class="hint">Quota met. Session Research banked.</p>
+        <div id="research-stats">
+          <span id="research-quota-stat">QUOTA 0 / 0</span>
+          <span id="research-police-stat">POLICE CALLED 0 TIMES</span>
+        </div>
+        <div id="research-bridge">
+          <div id="research-bubble">
+            <div class="research-quip-kicker">BRIDGE</div>
+            <p id="research-quip"></p>
+            <span class="research-bubble-tail" aria-hidden="true"></span>
+          </div>
+          <div id="bridge-alien" aria-hidden="true">
+            <svg viewBox="0 0 72 80" xmlns="http://www.w3.org/2000/svg">
+              <g class="alien-body" fill="#7adf4a" stroke="#111" stroke-width="0.7" stroke-linejoin="round">
+                <path d="M21 18 L12 8" fill="none" stroke-linecap="round"/>
+                <circle cx="9" cy="6" r="5.4"/>
+                <path d="M51 18 L60 8" fill="none" stroke-linecap="round"/>
+                <circle cx="63" cy="6" r="5.4"/>
+                <path d="M36 13 C18 13 10 24 11 41 C12 58 24 73 36 77 C48 73 60 58 61 41 C62 24 54 13 36 13 Z"/>
+              </g>
+              <ellipse cx="24" cy="42" rx="8.6" ry="11.2" transform="rotate(-32 24 42)" fill="#111"/>
+              <ellipse cx="48" cy="42" rx="8.6" ry="11.2" transform="rotate(32 48 42)" fill="#111"/>
+              <ellipse class="alien-mouth" cx="36" cy="64" rx="6.2" ry="4.4" fill="#111"/>
+            </svg>
+          </div>
+        </div>
+        <div id="research-list"></div>
+        <button id="research-continue" type="button">CONTINUE</button>
+      </div>
+      <div id="research-info" class="hidden">
+        <div class="research-info-card">
+          <button id="research-info-close" type="button" aria-label="Close">✕</button>
+          <div id="research-info-art"></div>
+          <h3 id="research-info-name"></h3>
+          <p id="research-info-blurb"></p>
+        </div>
       </div>
     </div>
     <div id="end-screen" class="hidden">

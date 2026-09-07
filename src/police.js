@@ -28,7 +28,7 @@ function surroundPoint(ufo, index, count) {
     };
 }
 
-export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast }) {
+export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast, onCall }) {
     const cars = [];
     let surrounding = false;
     let surroundT = 0;
@@ -143,10 +143,12 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast })
         if (want >= BALANCE.policeCount80 && !announced80) {
             announced80 = true;
             toast("POLICE INBOUND", "warn");
+            if (onCall) onCall();
         }
         if (want >= BALANCE.policeCount90 && !announced90) {
             announced90 = true;
             toast("POLICE REINFORCEMENTS", "bad");
+            if (onCall) onCall();
         }
         if (want === 0) {
             announced80 = false;

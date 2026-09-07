@@ -1,10 +1,10 @@
 import { TARGET_BY_ID, targetsForMap } from "./targets.js";
 
 function needFor(def) {
-    if (def.weightTier <= 1) return 5 + Math.floor(Math.random() * 4);
-    if (def.weightTier === 2) return 3 + Math.floor(Math.random() * 3);
-    if (def.weightTier === 3) return 2 + Math.floor(Math.random() * 2);
-    return 1 + Math.floor(Math.random() * 2);
+    if (def.weightTier <= 1) return 10 + Math.floor(Math.random() * 5);
+    if (def.weightTier === 2) return 7 + Math.floor(Math.random() * 4);
+    if (def.weightTier === 3) return 5 + Math.floor(Math.random() * 3);
+    return 3 + Math.floor(Math.random() * 3);
 }
 
 export function rollSessionGoal(mapId, coreLevel = 1, successfulExpeditions = 0) {
@@ -15,7 +15,7 @@ export function rollSessionGoal(mapId, coreLevel = 1, successfulExpeditions = 0)
     }
     if (!pool.length) {
         const fallback = TARGET_BY_ID.chicken;
-        return [{ id: fallback.id, need: 6, have: 0 }];
+        return [{ id: fallback.id, need: 12, have: 0 }];
     }
     const living = pool.filter((d) => d.category === "living");
     const bag = (living.length >= 2 ? living : pool).slice();

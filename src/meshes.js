@@ -276,6 +276,34 @@ export function createSpecimenMesh(def) {
         },
         bungalow: () => building(def, 0x6a4030),
         shop: () => building(def, 0x2a3a4a),
+        bakery: () => {
+            const g = storefront(def, 0x6a4030, 0xc45a3a);
+            const [sx, sy] = def.size;
+            const chim = box(0.12, 0.22, 0.12, 0x8a6a50, sy * 1.02);
+            chim.position.x = sx * 0.28;
+            g.add(chim);
+            return g;
+        },
+        butcher: () => storefront(def, 0x6a2020, 0xc02020),
+        cafe: () => {
+            const g = storefront(def, 0x3a2a22, 0x6a4030);
+            const [, , sz] = def.size;
+            const table = cyl(0.08, 0.08, 0.05, 0x6a5030, 0.12, 8);
+            table.position.z = sz * 0.62;
+            g.add(table);
+            return g;
+        },
+        supermarket: () => {
+            const [sx, sy, sz] = def.size;
+            const g = new THREE.Group();
+            g.add(box(sx, sy * 0.82, sz, def.colour, sy * 0.41));
+            g.add(box(sx * 0.98, 0.08, sz * 0.98, 0x3a4850, sy * 0.86));
+            const glass = box(sx * 0.72, sy * 0.28, 0.06, 0x88b4d0, sy * 0.28);
+            glass.position.z = sz * 0.5;
+            g.add(glass);
+            addBlob(g, Math.max(sx, sz) * 0.48);
+            return g;
+        },
         townhouse: () => building(def, 0x5a2a22, true),
         apartment: () => {
             const [sx, sy, sz] = def.size;
@@ -399,6 +427,18 @@ function building(def, roofColor, tallRoof = false) {
     roof.position.y = sy * 0.86;
     g.add(roof);
     addBlob(g, Math.max(sx, sz) * 0.48);
+    return g;
+}
+
+function storefront(def, roofColor, awningColor) {
+    const g = building(def, roofColor);
+    const [sx, sy, sz] = def.size;
+    const door = box(sx * 0.22, sy * 0.28, 0.06, 0x88b4d0, sy * 0.22);
+    door.position.z = sz * 0.5;
+    g.add(door);
+    const awning = box(sx * 0.92, 0.05, 0.22, awningColor, sy * 0.42);
+    awning.position.z = sz * 0.52;
+    g.add(awning);
     return g;
 }
 

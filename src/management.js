@@ -2,25 +2,25 @@ import { upgradeCost } from "./balance.js";
 import { systemCap } from "./maps.js";
 
 const SYSTEM_META = {
-    scanner: { title: "SCANNER ARRAY", body: "Finds high-value and rare Specimens.", loc: "Dome" },
-    core: { title: "GRAVITON CORE", body: "Raises the Weight Tier you can lift.", loc: "Centre" },
-    beam: { title: "TRACTOR BEAM", body: "Widens the Capture Zone and speeds the pull.", loc: "Underside" },
-    cloak: { title: "CLOAKING", body: "Cuts Suspicion gain, then speeds decay.", loc: "Hull" },
-    propulsion: { title: "PROPULSION", body: "Raises max speed and acceleration.", loc: "Engines" },
+    scanner: { title: "SCANNER ARRAY", body: "Rarer, richer finds." },
+    core: { title: "GRAVITON CORE", body: "Lift heavier Specimens." },
+    beam: { title: "TRACTOR BEAM", body: "Wider beam. Faster pull." },
+    cloak: { title: "CLOAKING", body: "Less Suspicion." },
+    propulsion: { title: "PROPULSION", body: "Faster UFO." },
 };
 
 function nextBlurb(system, level, cap) {
     if (level >= cap) return "MAXED";
     const n = level + 1;
-    if (system === "core") return `Next: lift Weight Tier ${n}`;
-    if (system === "beam") return `Next: larger Capture Zone, faster pull`;
-    if (system === "cloak") return n >= 3 ? "Next: faster Suspicion decay" : "Next: less Suspicion per lift";
+    if (system === "core") return `Next: Weight ${n}`;
+    if (system === "beam") return "Next: +radius, +speed";
+    if (system === "cloak") return n >= 3 ? "Next: faster decay" : "Next: less Suspicion";
     if (system === "scanner") {
         if (n === 2) return "Next: Research labels";
-        if (n === 3) return "Next: highlight high-value targets";
-        return "Next: better rare-event chance";
+        if (n === 3) return "Next: high-value glow";
+        return "Next: rarer finds";
     }
-    return "Next: faster UFO";
+    return "Next: +speed";
 }
 
 export function bindManagement({ els, getPersist, onUpgrade, onNext }) {
@@ -65,7 +65,7 @@ export function bindManagement({ els, getPersist, onUpgrade, onNext }) {
         const meta = SYSTEM_META[openSystem];
         els.panel.classList.remove("hidden");
         els.panelTitle.textContent = meta.title;
-        els.panelBody.textContent = `${meta.loc}. ${meta.body} Current LV ${lv}. ${nextBlurb(openSystem, lv, cap)}.`;
+        els.panelBody.textContent = `${meta.body} ${nextBlurb(openSystem, lv, cap)}`;
         if (cost == null) {
             els.panelCost.textContent = "MAXED";
             els.upgradeBtn.disabled = true;

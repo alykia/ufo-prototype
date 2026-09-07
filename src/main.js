@@ -29,6 +29,8 @@ import {
     systemCap,
 } from "./maps.js";
 import { creditGoal, goalFilled, goalLabel, goalSpawnMul, rollSessionGoal } from "./goals.js";
+import { BLURBS } from "./blurbs.js";
+import { sessionQuip } from "./sessionQuips.js";
 
 const STATE = {
     MENU: "MENU",
@@ -72,6 +74,15 @@ const els = {
     endTitle: $("end-title"),
     endSub: $("end-sub"),
     endStats: $("end-stats"),
+    researchSuccess: $("research-success"),
+    researchList: $("research-list"),
+    researchInfo: $("research-info"),
+    researchInfoArt: $("research-info-art"),
+    researchInfoName: $("research-info-name"),
+    researchInfoBlurb: $("research-info-blurb"),
+    researchQuotaStat: $("research-quota-stat"),
+    researchPoliceStat: $("research-police-stat"),
+    researchQuip: $("research-quip"),
 };
 
 let persist = loadPersistent();
@@ -134,6 +145,9 @@ const police = bindPolice({
     labelsEl,
     createPoliceCar,
     toast,
+    onCall: () => {
+        expedition.policeCalls += 1;
+    },
 });
 syncBeam();
 
@@ -178,6 +192,9 @@ function emptyExpedition() {
         goals: [],
         goalReached: false,
         quotaReached: false,
+        sessionCatches: {},
+        sessionNew: [],
+        policeCalls: 0,
         suspicion: 0,
         abducted: 0,
         largestLabel: "—",
@@ -386,6 +403,7 @@ function showMenu() {
     els.confirm.classList.add("hidden");
     indexBook.hide();
     management.hide();
+    hideResearchSuccess();
     pickups.clear();
     police.clear();
     endJoystick();
@@ -437,6 +455,7 @@ function startExpedition() {
     els.endScreen.classList.add("hidden");
     management.hide();
     indexBook.hide();
+    hideResearchSuccess();
     showGoalBanner(expedition.goals);
     paintGoalRow();
     syncHud();
@@ -496,7 +515,7 @@ function endExpedition(reason) {
         `Banked now        ${persist.bankedResearch}`,
     ].join("\n");
     if (reason === "quota") {
-        openManagement();
+        showResearchSuccess();
         return;
     }
     els.endScreen.classList.remove("hidden");
@@ -505,14 +524,69 @@ function endExpedition(reason) {
 function completeQuota() {
     if (expedition.quotaReached) return;
     expedition.quotaReached = true;
-    toast("QUOTA COMPLETE");
     endExpedition("quota");
 }
 
 function openManagement() {
     gameState = STATE.UFO_MANAGEMENT;
     els.endScreen.classList.add("hidden");
+    hideResearchSuccess();
     management.show();
+}
+
+function hideResearchSuccess() {
+    if (!els.researchSuccess) return;
+    els.researchSuccess.classList.add("hidden");
+    if (els.researchInfo) els.researchInfo.classList.add("hidden");
+}
+
+function openResearchInfo(def) {
+    if (!def || !els.researchInfo) return;
+    els.researchInfoArt.innerHTML = specimenIcon(def);
+    els.researchInfoName.textContent = def.label;
+    els.researchInfoBlurb.textContent = BLURBS[def.id] || "Classification pending. It wiggles.";
+    els.researchInfo.classList.remove("hidden");
+}
+
+function showResearchSuccess() {
+    if (!els.researchSuccess || !els.researchList) {
+        openManagement();
+        return;
+    }
+    pickups.clear();
+    const catches = expedition.sessionCatches || {};
+    const news = new Set(expedition.sessionNew || []);
+    const rows = Object.keys(catches)
+        .map((id) => ({ def: TARGET_BY_ID[id], count: catches[id], isNew: news.has(id) }))
+        .filter((row) => row.def && row.count > 0)
+        .sort((a, b) => b.count - a.count || a.def.label.localeCompare(b.def.label));
+    els.researchList.innerHTML = rows.length
+        ? rows.map((row) => `
+            <div class="research-row" data-id="${row.def.id}">
+              <div class="research-art">${specimenIcon(row.def)}</div>
+              <div class="research-meta">
+                <div class="research-name">${row.def.label}</div>
+                <div class="research-count">×${row.count}</div>
+              </div>
+              ${row.isNew ? `<span class="research-new">NEW !</span>
+              <button class="research-info-btn" type="button" data-info="${row.def.id}" aria-label="Info">i</button>` : ""}
+            </div>
+          `).join("")
+        : `<p class="hint">No specimens logged.</p>`;
+    const calls = expedition.policeCalls || 0;
+    if (els.researchQuotaStat) {
+        els.researchQuotaStat.textContent = `QUOTA ${expedition.sessionResearch} / ${expedition.quota}`;
+    }
+    if (els.researchPoliceStat) {
+        els.researchPoliceStat.textContent = calls === 1
+            ? "POLICE CALLED 1 TIME"
+            : `POLICE CALLED ${calls} TIMES`;
+    }
+    const quip = sessionQuip(expedition, persist.selectedMap)
+        || "Earth remains poorly guarded and excellently stocked. Recommend repeat visit.";
+    if (els.researchQuip) els.researchQuip.textContent = quip;
+    els.researchInfo.classList.add("hidden");
+    els.researchSuccess.classList.remove("hidden");
 }
 
 function startNextExpedition() {
@@ -773,7 +847,11 @@ function finishAbduction(spec, stats) {
         expedition.abducted += 1;
         expedition.suspicion = Math.min(100, expedition.suspicion + spec.def.suspicionValue * stats.cloakMul * BALANCE.suspicionGainMul);
         lastAbductAt = expedition.elapsed;
-        if (!persist.discoveredSpecimens.includes(spec.def.id)) persist.discoveredSpecimens.push(spec.def.id);
+        expedition.sessionCatches[spec.def.id] = (expedition.sessionCatches[spec.def.id] || 0) + 1;
+        if (!persist.discoveredSpecimens.includes(spec.def.id)) {
+            persist.discoveredSpecimens.push(spec.def.id);
+            if (!expedition.sessionNew.includes(spec.def.id)) expedition.sessionNew.push(spec.def.id);
+        }
         if (spec.def.researchValue >= expedition.largestResearch) {
             expedition.largestResearch = spec.def.researchValue;
             expedition.largestLabel = spec.def.label;
@@ -1048,7 +1126,7 @@ function syncHud() {
 }
 
 function ignorePointer(target) {
-    return Boolean(target.closest("button, #hud-bottom, #hud-top, #menu, #modal, #end-screen, #confirm, #management, #index-book"));
+    return Boolean(target.closest("button, #hud-bottom, #hud-top, #menu, #modal, #end-screen, #confirm, #management, #index-book, #research-success"));
 }
 
 function stagePoint(clientX, clientY) {
@@ -1157,6 +1235,13 @@ function bindShell() {
         if (simRunning() && extractUnlockAt <= 0) endExpedition("extract");
     });
     $("open-management").addEventListener("click", () => openManagement());
+    $("research-continue").addEventListener("click", () => openManagement());
+    $("research-info-close").addEventListener("click", () => els.researchInfo.classList.add("hidden"));
+    els.researchList.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("[data-info]");
+        if (!btn) return;
+        openResearchInfo(TARGET_BY_ID[btn.dataset.info]);
+    });
     $("confirm-cancel").addEventListener("click", () => els.confirm.classList.add("hidden"));
     $("confirm-delete").addEventListener("click", () => {
         els.confirm.classList.add("hidden");
