@@ -217,8 +217,9 @@
       right: 0;
       bottom: 0;
       z-index: 4;
-      padding: 8px 10px 10px;
-      background: linear-gradient(to top, rgba(6, 8, 16, 0.96), rgba(6, 8, 16, 0.78), transparent);
+      padding: 8px 10px 12px;
+      pointer-events: none;
+      background: linear-gradient(to top, rgba(6, 8, 16, 0.72), transparent);
     }
     .meter {
       flex: 1;
@@ -304,46 +305,21 @@
       0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
       50% { opacity: 0.72; transform: translateX(-50%) scale(1.06); }
     }
-    #extract-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    #extract-btn {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      border: 0;
-      border-radius: 12px;
-      padding: 12px;
-      font-size: 18px;
-      font-weight: 900;
-      letter-spacing: 0.14em;
-      cursor: pointer;
-      background: #d6ff6a;
-      color: #14200a;
-      min-height: 56px;
-    }
-    #extract-btn .ui-icon { width: 28px; height: 28px; flex: 0 0 28px; }
-    #extract-btn:disabled {
-      opacity: 0.45;
-      cursor: default;
-    }
     #settings-btn {
+      pointer-events: auto;
       display: flex;
       align-items: center;
       justify-content: center;
+      margin-left: auto;
       border: 1px solid #3a4458;
       background: #1a2130;
       color: #eef3ea;
       border-radius: 10px;
-      min-width: 56px;
-      min-height: 56px;
+      min-width: 48px;
+      min-height: 48px;
       cursor: pointer;
     }
-    #settings-btn .ui-icon { width: 28px; height: 28px; }
+    #settings-btn .ui-icon { width: 24px; height: 24px; }
     #goal-banner {
       position: absolute;
       top: 36%;
@@ -416,7 +392,7 @@
       top: 168px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 5;
+      z-index: 8;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -626,6 +602,7 @@
       background: rgba(4, 6, 12, 0.62);
       padding: 12px;
     }
+    #confirm { z-index: 12; }
     #management {
       flex-direction: column;
       justify-content: flex-start;
@@ -685,6 +662,7 @@
       padding: 10px 12px;
     }
     #delete-progress, #confirm-delete { background: #5a2a2a; border-color: #8a4444; width: 100%; margin-top: 6px; }
+    #confirm-delete.ok { background: #d6ff6a; color: #14200a; border: 0; }
     #main-menu { width: 100%; margin-top: 6px; }
     #close-settings, #confirm-cancel { width: 100%; margin-top: 8px; }
     #end-screen .panel { text-align: center; }
@@ -695,6 +673,10 @@
     #research-success {
       flex-direction: column;
       z-index: 9;
+    }
+    #research-success.detected #research-title,
+    #research-success.failed #research-title {
+      color: #ff4a4a;
     }
     .research-panel {
       width: min(100%, 320px);
@@ -1648,15 +1630,9 @@
     </div>
     <div id="hud-bottom">
       <div id="warn"></div>
-      <div id="extract-wrap">
-        <button id="extract-btn" type="button">
-          <img class="ui-icon" data-icon="ufo" alt="" />
-          <span id="extract-label">EXTRACT</span>
-        </button>
-        <button id="settings-btn" type="button" aria-label="Settings">
-          <img class="ui-icon" data-icon="settings" alt="" />
-        </button>
-      </div>
+      <button id="settings-btn" type="button" aria-label="Settings">
+        <img class="ui-icon" data-icon="settings" alt="" />
+      </button>
     </div>
     <div id="menu">
       <div id="menu-logo" aria-hidden="true">
@@ -1716,8 +1692,8 @@
     </div>
     <div id="research-success" class="hidden">
       <div class="panel research-panel">
-        <h2><img class="ui-icon" data-icon="research" alt="" /> RESEARCH SUCCESSFUL</h2>
-        <p class="hint">Quota met. Session Research banked.</p>
+        <h2 id="research-title"><img class="ui-icon" data-icon="research" alt="" /> RESEARCH SUCCESSFUL</h2>
+        <p class="hint" id="research-hint">Quota met. Session Research banked.</p>
         <div id="research-stats">
           <span id="research-quota-stat" class="stat-chip">0 / 0</span>
           <span id="research-goal-stat" class="stat-chip"></span>

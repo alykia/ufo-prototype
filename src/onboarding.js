@@ -28,7 +28,7 @@ const MOVE_HOLD_S = 0.8;
  *  pause - world held via holdWorld(true); tap after text or a timer dismisses.
  *  note  - non-blocking; auto-dismisses.
  */
-export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdWorld, anchorRect }) {
+export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdWorld, anchorRect, confirmSkip }) {
     const alienEl = root.querySelector(".bb-alien");
     const textEl = root.querySelector("#bridge-text");
     const tapEl = root.querySelector("#bridge-tap");
@@ -334,7 +334,8 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
     });
     skipBtn.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        skip();
+        if (confirmSkip) confirmSkip();
+        else skip();
     });
 
     root.classList.add("hidden");

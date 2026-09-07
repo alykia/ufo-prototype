@@ -103,12 +103,54 @@ export const MAPS = {
             { x: 2.4, z: 4.55 },
         ],
         enclosures: {
-            ice: { xMin: -3.6, xMax: -0.35, zMin: -1.1, zMax: 2.8 },
-            savanna: { xMin: 0.45, xMax: 3.7, zMin: -1.3, zMax: 3.0 },
-            forest: { xMin: -3.4, xMax: 3.4, zMin: -5.5, zMax: -2.0 },
+            ice: {
+                points: [
+                    { x: -3.65, z: 2.85 },
+                    { x: -0.62, z: 2.55 },
+                    { x: -0.58, z: 0.15 },
+                    { x: -1.55, z: -1.35 },
+                    { x: -3.70, z: -0.85 },
+                ],
+                gapEdge: 1,
+            },
+            savanna: {
+                points: [
+                    { x: 0.62, z: 2.95 },
+                    { x: 3.55, z: 2.65 },
+                    { x: 3.70, z: 0.35 },
+                    { x: 2.85, z: -1.45 },
+                    { x: 0.58, z: -0.75 },
+                ],
+                gapEdge: 4,
+            },
+            forest: {
+                points: [
+                    { x: -3.50, z: -2.20 },
+                    { x: 1.10, z: -2.15 },
+                    { x: 3.45, z: -2.55 },
+                    { x: 3.35, z: -5.35 },
+                    { x: -0.40, z: -5.55 },
+                    { x: -3.55, z: -4.65 },
+                ],
+                gapEdge: 0,
+            },
         },
     },
 };
+
+export const MAP_UNLOCK_CORE = {
+    farm: 1,
+    town: 5,
+    zoo: 12,
+};
+
+export function mapUnlockCore(mapId) {
+    return MAP_UNLOCK_CORE[mapId] || 1;
+}
+
+export function relativeWeight(weightTier, mapId) {
+    return Math.max(1, (weightTier || 1) - mapUnlockCore(mapId) + 1);
+}
 
 export function systemCap(unlockedMaps = ["farm"]) {
     if (unlockedMaps.includes("zoo")) return 20;
@@ -131,24 +173,96 @@ export function mapDef(id) {
     return MAPS[id] || MAPS.farm;
 }
 
+export function enclosureShape(enc) {
+    if (!enc) return null;
+    if (enc.points?.length >= 3) return enc.points;
+    if (enc.xMin == null) return null;
+    return [
+        { x: enc.xMin, z: enc.zMin },
+        { x: enc.xMax, z: enc.zMin },
+        { x: enc.xMax, z: enc.zMax },
+        { x: enc.xMin, z: enc.zMax },
+    ];
+}
+
+function polyBounds(pts) {
+    let xMin = Infinity;
+    let xMax = -Infinity;
+    let zMin = Infinity;
+    let zMax = -Infinity;
+    for (const p of pts) {
+        if (p.x < xMin) xMin = p.x;
+        if (p.x > xMax) xMax = p.x;
+        if (p.z < zMin) zMin = p.z;
+        if (p.z > zMax) zMax = p.z;
+    }
+    return { xMin, xMax, zMin, zMax };
+}
+
+function polyCentroid(pts) {
+    let x = 0;
+    let z = 0;
+    for (const p of pts) {
+        x += p.x;
+        z += p.z;
+    }
+    return { x: x / pts.length, z: z / pts.length };
+}
+
+function pointInPoly(x, z, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi = pts[i].x;
+        const zi = pts[i].z;
+        const xj = pts[j].x;
+        const zj = pts[j].z;
+        if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / ((zj - zi) || 1e-6) + xi) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
+function projectToSeg(x, z, a, b) {
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const len2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len2));
+    return { x: a.x + dx * t, z: a.z + dz * t };
+}
+
 export function enclosurePoint(mapId, enclosureId) {
-    const box = MAPS[mapId]?.enclosures?.[enclosureId];
-    if (!box) return null;
-    const pad = 0.12;
-    return {
-        x: box.xMin + pad + Math.random() * Math.max(0.05, box.xMax - box.xMin - pad * 2),
-        z: box.zMin + pad + Math.random() * Math.max(0.05, box.zMax - box.zMin - pad * 2),
-    };
+    const pts = enclosureShape(MAPS[mapId]?.enclosures?.[enclosureId]);
+    if (!pts) return null;
+    const b = polyBounds(pts);
+    const pad = 0.16;
+    for (let i = 0; i < 28; i++) {
+        const x = b.xMin + pad + Math.random() * Math.max(0.05, b.xMax - b.xMin - pad * 2);
+        const z = b.zMin + pad + Math.random() * Math.max(0.05, b.zMax - b.zMin - pad * 2);
+        if (pointInPoly(x, z, pts)) return { x, z };
+    }
+    return polyCentroid(pts);
 }
 
 export function clampInEnclosure(mapId, enclosureId, x, z) {
-    const box = MAPS[mapId]?.enclosures?.[enclosureId];
-    if (!box) return { x, z };
-    const pad = 0.08;
-    return {
-        x: Math.min(box.xMax - pad, Math.max(box.xMin + pad, x)),
-        z: Math.min(box.zMax - pad, Math.max(box.zMin + pad, z)),
-    };
+    const pts = enclosureShape(MAPS[mapId]?.enclosures?.[enclosureId]);
+    if (!pts) return { x, z };
+    if (pointInPoly(x, z, pts)) return { x, z };
+    let best = { x, z };
+    let bestD = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+        const p = projectToSeg(x, z, pts[i], pts[(i + 1) % pts.length]);
+        const d = (p.x - x) ** 2 + (p.z - z) ** 2;
+        if (d < bestD) {
+            bestD = d;
+            best = p;
+        }
+    }
+    const c = polyCentroid(pts);
+    const vx = c.x - best.x;
+    const vz = c.z - best.z;
+    const n = Math.hypot(vx, vz) || 1;
+    return { x: best.x + (vx / n) * 0.1, z: best.z + (vz / n) * 0.1 };
 }
 
 export { ROAD_HALF, TOWN_NS, TOWN_EW, TOWN_EW2 };

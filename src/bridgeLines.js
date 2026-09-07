@@ -63,13 +63,6 @@ export const TRAINING_BEATS = [
         line: "The eye is filling. Humans are noticing. Stop grabbing. Look innocent. You are a saucer. Try.",
     },
     {
-        id: "extract",
-        mode: "note",
-        showOn: "extractReady",
-        anchor: "#extract-btn",
-        line: "That button leaves early. Quota sends us home anyway. Eye angry? Press it.",
-    },
-    {
         id: "management",
         mode: "gate",
         showOn: "management",

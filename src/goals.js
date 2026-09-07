@@ -1,15 +1,17 @@
+import { relativeWeight } from "./maps.js";
 import { TARGET_BY_ID, targetsForMap } from "./targets.js";
 
 function needFor(def, mapId) {
+    const rel = relativeWeight(def.weightTier, mapId);
     if (mapId === "farm") {
-        if (def.weightTier <= 1) return 5 + Math.floor(Math.random() * 3);
-        if (def.weightTier === 2) return 4 + Math.floor(Math.random() * 2);
-        if (def.weightTier === 3) return 3 + Math.floor(Math.random() * 2);
+        if (rel <= 1) return 5 + Math.floor(Math.random() * 3);
+        if (rel === 2) return 4 + Math.floor(Math.random() * 2);
+        if (rel === 3) return 3 + Math.floor(Math.random() * 2);
         return 2 + Math.floor(Math.random() * 2);
     }
-    if (def.weightTier <= 1) return 10 + Math.floor(Math.random() * 5);
-    if (def.weightTier === 2) return 7 + Math.floor(Math.random() * 4);
-    if (def.weightTier === 3) return 5 + Math.floor(Math.random() * 3);
+    if (rel <= 1) return 10 + Math.floor(Math.random() * 5);
+    if (rel === 2) return 7 + Math.floor(Math.random() * 4);
+    if (rel === 3) return 5 + Math.floor(Math.random() * 3);
     return 3 + Math.floor(Math.random() * 3);
 }
 

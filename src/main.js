@@ -27,7 +27,9 @@ import {
     clampInEnclosure,
     enclosurePoint,
     mapDef,
+    mapUnlockCore,
     newestMap,
+    relativeWeight,
     systemCap,
 } from "./maps.js";
 import { creditGoal, goalFilled, goalLabel, goalSpawnMul, rollSessionGoal } from "./goals.js";
@@ -68,8 +70,6 @@ const els = {
     goalText: $("goal-text"),
     goalRow: $("goal-row"),
     warn: $("warn"),
-    extractBtn: $("extract-btn"),
-    extractLabel: $("extract-label"),
     settingsBtn: $("settings-btn"),
     quotaChip: $("quota-chip"),
     alertFrame: $("alert-frame"),
@@ -94,6 +94,8 @@ const els = {
     researchPoliceStat: $("research-police-stat"),
     goalBonus: $("goal-bonus"),
     researchQuip: $("research-quip"),
+    researchTitle: $("research-title"),
+    researchHint: $("research-hint"),
     endQuip: $("end-quip"),
     endAlien: $("end-alien"),
     nextBtn: $("next-expedition"),
@@ -104,7 +106,7 @@ let gameState = STATE.MENU;
 let settingsReturn = STATE.MENU;
 let debugOn = DEBUG;
 // Per-run Training Expedition flags (reset in startExpedition).
-const trainingRun = { cowSpawned: false, bumpDone: false, suspicionFired: false, extractFired: false, upgraded: false, floorLine: false };
+const trainingRun = { cowSpawned: false, bumpDone: false, suspicionFired: false, upgraded: false, floorLine: false };
 
 const expedition = emptyExpedition();
 const specimens = [];
@@ -113,7 +115,6 @@ let slotBusy = [];
 let spawnTimer = 0;
 let bigfootTimer = 0;
 let lastAbductAt = -999;
-let extractUnlockAt = 0;
 let rareBannerUntil = 0;
 const ufoVel = new THREE.Vector2();
 const tmp = new THREE.Vector3();
@@ -198,6 +199,29 @@ const indexBook = bindIndexBook({
     specimenIcon,
 });
 
+let confirmYes = null;
+
+function askConfirm({ title, hint, actionLabel, danger = true, onYes }) {
+    $("confirm-title").textContent = title;
+    $("confirm-hint").textContent = hint || "";
+    $("confirm-hint").classList.toggle("hidden", !hint);
+    const btn = $("confirm-delete");
+    btn.textContent = actionLabel;
+    btn.classList.toggle("ok", !danger);
+    confirmYes = onYes;
+    els.confirm.classList.remove("hidden");
+}
+
+function askWipeConfirm() {
+    askConfirm({
+        title: "ALL THE PROGRESS WILL BE LOST, ARE YOU SURE?",
+        hint: "Banked Research, UFO systems, maps, discoveries and best stats will be wiped. Sound setting is kept.",
+        actionLabel: "RESTART",
+        danger: true,
+        onYes: resetProgress,
+    });
+}
+
 const onboarding = bindOnboarding({
     stage,
     root: $("bridge-bubble"),
@@ -207,6 +231,13 @@ const onboarding = bindOnboarding({
     save,
     holdWorld,
     anchorRect,
+    confirmSkip: () => askConfirm({
+        title: "Skip the tutorial?",
+        hint: "You can replay it later from Settings.",
+        actionLabel: "SKIP",
+        danger: false,
+        onYes: () => onboarding.skip(),
+    }),
 });
 if (els.endAlien) els.endAlien.innerHTML = ALIEN_SVG;
 
@@ -477,6 +508,11 @@ function mapLimits() {
     return { maxBuildings: map.maxBuildings, maxVehicles: map.maxVehicles };
 }
 
+function buildingSpawnChance(core) {
+    if (persist.selectedMap === "town") return BALANCE.townBuildingSpawnChance;
+    return core >= 4 ? 0.14 : 0.05;
+}
+
 function syncMapUnlocks(announce) {
     let unlocked = false;
     if (!persist.unlockedMaps.includes("town") && allSystemsAt(persist.upgrades, 5)) {
@@ -508,10 +544,12 @@ function paintMapRow() {
     row.querySelectorAll("[data-map]").forEach((btn) => {
         const id = btn.dataset.map;
         const open = persist.unlockedMaps.includes(id);
-        btn.disabled = !open;
+        const need = mapUnlockCore(id);
         btn.classList.toggle("locked", !open);
         btn.classList.toggle("selected", persist.selectedMap === id);
         btn.classList.toggle("newest", open && id === newest);
+        btn.setAttribute("aria-disabled", open ? "false" : "true");
+        btn.setAttribute("aria-label", open ? mapDef(id).label : `${mapDef(id).label}, UFO stats to level ${need} to unlock`);
     });
 }
 
@@ -553,7 +591,6 @@ function resetTrainingRun() {
     trainingRun.cowSpawned = false;
     trainingRun.bumpDone = false;
     trainingRun.suspicionFired = false;
-    trainingRun.extractFired = false;
     trainingRun.upgraded = false;
     trainingRun.floorLine = false;
 }
@@ -589,7 +626,6 @@ function startExpedition() {
     spawnTimer = 0.15;
     bigfootTimer = training ? Infinity : BALANCE.bigfootCheckInterval * 0.45;
     lastAbductAt = -999;
-    extractUnlockAt = BALANCE.extractLockout;
     rareBannerUntil = 0;
     ufo.position.set(0, BALANCE.ufoHoverY, 0);
     ufoVel.set(0, 0);
@@ -664,34 +700,7 @@ function endExpedition(reason) {
     pickups.setFrozen(false);
     endJoystick();
     onboarding.event("expeditionEnd");
-    const titles = {
-        success: "SUCCESS",
-        failed: "FAILED",
-        detected: "UFO DETECTED",
-    };
-    const subs = {
-        success: "Quota met. Session Research banked.",
-        failed: "Quota missed. Session Research still banked.",
-        detected: "Forced extract. Session Research still banked.",
-    };
-    els.endTitle.textContent = titles[expedition.result];
-    els.endSub.textContent = subs[expedition.result];
-    els.endStats.textContent = [
-        `Session Research  ${expedition.sessionResearch}`,
-        `Quota             ${expedition.quota}  ${expedition.quotaReached ? "✓" : ""}`,
-        `Goal              ${goalSummary(expedition.goals)}  ${expedition.goalReached ? "✓" : ""}`,
-        `Abducted          ${expedition.abducted}`,
-        `Largest target    ${expedition.largestLabel}`,
-        `Max Suspicion     ${Math.round(expedition.maxSuspicion)}%`,
-        `Rare captures     ${expedition.rareCaptures}`,
-        `Banked now        ${persist.bankedResearch}`,
-    ].join("\n");
-    if (reason === "quota") {
-        showResearchSuccess();
-        return;
-    }
-    if (els.endQuip) els.endQuip.textContent = resultQuip();
-    els.endScreen.classList.remove("hidden");
+    showResearchSuccess();
 }
 
 function resultQuip() {
@@ -723,6 +732,7 @@ function openManagement() {
 function hideResearchSuccess() {
     if (!els.researchSuccess) return;
     els.researchSuccess.classList.add("hidden");
+    els.researchSuccess.classList.remove("detected", "failed");
     if (els.researchInfo) els.researchInfo.classList.add("hidden");
 }
 
@@ -740,6 +750,21 @@ function showResearchSuccess() {
         return;
     }
     pickups.clear();
+    const result = expedition.result || "success";
+    const titles = {
+        success: `${uiIcon("research")} RESEARCH SUCCESSFUL`,
+        failed: `${uiIcon("warning")} FAILED`,
+        detected: `${uiIcon("warning")} UFO DETECTED`,
+    };
+    const hints = {
+        success: "Quota met. Session Research banked.",
+        failed: "Quota missed. Session Research still banked.",
+        detected: "Forced extract. Session Research still banked.",
+    };
+    els.researchSuccess.classList.toggle("detected", result === "detected");
+    els.researchSuccess.classList.toggle("failed", result === "failed");
+    if (els.researchTitle) els.researchTitle.innerHTML = titles[result] || titles.success;
+    if (els.researchHint) els.researchHint.textContent = hints[result] || hints.success;
     const catches = expedition.sessionCatches || {};
     const news = new Set(expedition.sessionNew || []);
     const rows = Object.keys(catches)
@@ -773,6 +798,7 @@ function showResearchSuccess() {
     }
     if (els.researchQuip) els.researchQuip.textContent = resultQuip();
     els.researchInfo.classList.add("hidden");
+    els.endScreen.classList.add("hidden");
     els.researchSuccess.classList.remove("hidden");
 }
 
@@ -953,10 +979,12 @@ function trySpawn(force = false) {
     const limits = mapLimits();
     if (c.liftable < BALANCE.minLiftableTargets) {
         def = pickLiftable(band, c);
-    } else if (c.buildings < limits.maxBuildings && Math.random() < (core >= 4 ? 0.14 : 0.05)) {
+    } else if (c.buildings < limits.maxBuildings && Math.random() < buildingSpawnChance(core)) {
         def = pickDef(band, (d) => d.slotted);
     } else if (c.vehicles < limits.maxVehicles && Math.random() < (core >= 3 ? 0.24 : 0.07)) {
         def = pickDef(band, (d) => d.onRoad);
+    } else if (persist.selectedMap === "zoo" && Math.random() < BALANCE.zooAnimalSpawnChance) {
+        def = pickDef(band, (d) => d.enclosure);
     } else {
         def = pickDef(band, (d) => !d.slotted && canFit(d, c));
     }
@@ -1049,7 +1077,7 @@ function tryCapture(spec, stats) {
         spec.state = "resisting";
         spec.resistT = 0;
         spec.tooHeavyUntil = expedition.elapsed + BALANCE.tooHeavyCooldown;
-        expedition.suspicion = Math.min(100, expedition.suspicion + BALANCE.tooHeavySuspicion * spec.def.weightTier * stats.cloakMul * BALANCE.suspicionGainMul);
+        expedition.suspicion = Math.min(100, expedition.suspicion + BALANCE.tooHeavySuspicion * relativeWeight(spec.def.weightTier, persist.selectedMap) * stats.cloakMul * BALANCE.suspicionGainMul);
         toast("TOO HEAVY", "warn");
         refreshLabel(spec);
         if (onboarding.gatesActive() && !trainingRun.bumpDone) {
@@ -1064,7 +1092,7 @@ function tryCapture(spec, stats) {
     if (abductingCount() >= BALANCE.maxConcurrentAbductions) return;
     spec.state = "abducting";
     spec.abductT = 0;
-    spec.abductDur = pullDurationFor(stats.beam, spec.def.weightTier);
+    spec.abductDur = pullDurationFor(stats.beam, relativeWeight(spec.def.weightTier, persist.selectedMap));
     spec.startX = spec.mesh.position.x;
     spec.startZ = spec.mesh.position.z;
     spec.awarded = false;
@@ -1270,12 +1298,6 @@ function updateUfo(dt, stats) {
 function updateWorld(dt) {
     const stats = derived();
     expedition.elapsed += dt;
-    const wasLocked = extractUnlockAt > 0;
-    extractUnlockAt = Math.max(0, extractUnlockAt - dt);
-    if (wasLocked && extractUnlockAt <= 0 && !trainingRun.extractFired) {
-        trainingRun.extractFired = true;
-        onboarding.event("extractReady");
-    }
     if (onboarding.isTraining()) {
         if (joyActive || joyInput.lengthSq() > 1e-4) onboarding.joystickHeld(dt, joyInput.length());
         if (!trainingRun.suspicionFired && expedition.suspicion >= BALANCE.trainingSuspicionBeatAt) {
@@ -1355,11 +1377,6 @@ function syncHud() {
     els.alertFrame.classList.toggle("hidden", expedition.suspicion < 75 || !inField);
     els.alertFrame.classList.toggle("critical", expedition.suspicion >= 90);
     els.redAlert.classList.toggle("hidden", expedition.suspicion < 90 || !inField);
-    const locked = extractUnlockAt > 0 || !simRunning() || police.isSurrounding();
-    els.extractBtn.disabled = locked;
-    if (els.extractLabel) {
-        els.extractLabel.textContent = extractUnlockAt > 0 ? String(Math.ceil(extractUnlockAt)) : "EXTRACT";
-    }
     if (els.nextBtn) els.nextBtn.disabled = onboarding.gatesActive() && !trainingRun.upgraded;
     debugHelpers.visible = debugOn || DEBUG;
     if (debugOn) {
@@ -1371,7 +1388,7 @@ function syncHud() {
             `goal ${goalSummary(expedition.goals)}`,
             `core ${persist.upgrades.core} beam ${persist.upgrades.beam} cloak ${persist.upgrades.cloak} scan ${persist.upgrades.scanner} prop ${persist.upgrades.propulsion}`,
             `specs ${specimens.length} abducting ${abductingCount()} sus ${expedition.suspicion.toFixed(1)}`,
-            `R +session  U +banked  S +sus  Q quota  B bigfoot  E extract`,
+            `R +session  U +banked  S +sus  Q quota  B bigfoot  E end`,
             `1-5 spawn tier   D overlay`,
         ].join("\n");
         // Read-only readout for automated playtests (debug overlay only).
@@ -1389,7 +1406,6 @@ function syncHud() {
             sessionResearch: expedition.sessionResearch,
             quota: q,
             banked: persist.bankedResearch,
-            extractUnlockAt,
             ufo: toScreen(ufo.position.x, ufo.position.z),
             specimens: specimens.map((s) => ({ id: s.def.id, state: s.state, ...toScreen(s.mesh.position.x, s.mesh.position.z) })),
         };
@@ -1489,24 +1505,22 @@ function bindShell() {
     $("menu-index").addEventListener("click", () => indexBook.show());
     $("map-row").addEventListener("click", (ev) => {
         const btn = ev.target.closest("[data-map]");
-        if (!btn || btn.disabled) return;
+        if (!btn) return;
         const id = btn.dataset.map;
-        if (!persist.unlockedMaps.includes(id)) return;
+        if (!persist.unlockedMaps.includes(id)) {
+            toast(`NEED UFO STATS AT LEVEL ${mapUnlockCore(id)}`, "warn", "lock");
+            return;
+        }
         persist.selectedMap = id;
         save();
         clearSpecimens();
         applyPlayfield(id);
         paintMapRow();
     });
-    $("menu-restart").addEventListener("click", () => {
-        els.confirm.classList.remove("hidden");
-    });
+    $("menu-restart").addEventListener("click", () => askWipeConfirm());
     $("menu-shop").addEventListener("click", () => toast("EMPTY", "", "shop"));
     $("menu-settings").addEventListener("click", () => openSettings(STATE.MENU));
     els.settingsBtn.addEventListener("click", () => openSettings(gameState));
-    els.extractBtn.addEventListener("click", () => {
-        if (simRunning() && extractUnlockAt <= 0) endExpedition("extract");
-    });
     $("open-management").addEventListener("click", () => openManagement());
     $("research-continue").addEventListener("click", () => openManagement());
     $("research-info-close").addEventListener("click", () => els.researchInfo.classList.add("hidden"));
@@ -1515,10 +1529,15 @@ function bindShell() {
         if (!btn) return;
         openResearchInfo(TARGET_BY_ID[btn.dataset.info]);
     });
-    $("confirm-cancel").addEventListener("click", () => els.confirm.classList.add("hidden"));
-    $("confirm-delete").addEventListener("click", () => {
+    $("confirm-cancel").addEventListener("click", () => {
         els.confirm.classList.add("hidden");
-        resetProgress();
+        confirmYes = null;
+    });
+    $("confirm-delete").addEventListener("click", () => {
+        const yes = confirmYes;
+        confirmYes = null;
+        els.confirm.classList.add("hidden");
+        if (yes) yes();
     });
 
     stage.addEventListener("pointerdown", beginJoystick);
@@ -1570,9 +1589,7 @@ function openSettings(from) {
         $("sound-toggle").innerHTML = uiIcon(on ? "sound" : "soundOff");
         $("sound-toggle").setAttribute("aria-label", on ? "Sound on" : "Sound off");
     });
-    $("delete-progress").addEventListener("click", () => {
-        els.confirm.classList.remove("hidden");
-    });
+    $("delete-progress").addEventListener("click", () => askWipeConfirm());
     $("main-menu").addEventListener("click", () => {
         els.modal.classList.add("hidden");
         showMenu();

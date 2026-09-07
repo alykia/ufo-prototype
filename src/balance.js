@@ -27,14 +27,16 @@ export const BALANCE = {
     quotaPerCoreLevel: 50,
     quotaPerExpedition: 35,
 
-    extractLockout: 10,
-
     maxActiveTargets: 14,
     maxConcurrentAbductions: 8,
     maxBuildings: 3,
     maxVehicles: 5,
     minLiftableTargets: 7,
     liftableSpawnBoost: 2.4,
+    townStillSpawnBoost: 1.18,
+    townBuildingSpawnChance: 0.17,
+    zooAnimalSpawnBoost: 1.22,
+    zooAnimalSpawnChance: 0.2,
     heavyPreviewNear: 0.2,
     heavyPreviewFar: 0.07,
     spawnIntervalMin: 0.7,
@@ -56,7 +58,7 @@ export const BALANCE = {
 
     baseBeamRadius: 0.78,
     beamRadiusPerLevel: 0.18,
-    pullDurationByTier: [0, 0.3, 0.36, 0.46, 0.56, 0.68, 0.72, 0.75, 0.78, 0.8, 0.82, 0.84, 0.86],
+    pullDurationByTier: [0, 0.3, 0.36, 0.46, 0.56, 0.68, 0.72, 0.75, 0.78, 0.8, 0.82, 0.84, 0.86, 0.88, 0.9, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97],
     pullDurationPerLevel: 0.03,
     minPullDuration: 0.2,
     maxPullDuration: 0.8,
@@ -163,7 +165,7 @@ export function beamRadiusFor(level) {
 }
 
 export function pullDurationFor(level, weightTier) {
-    const tier = Math.min(12, Math.max(1, weightTier));
+    const tier = Math.min(20, Math.max(1, weightTier));
     const raw = (BALANCE.pullDurationByTier[tier] ?? 0.8)
         - BALANCE.pullDurationPerLevel * Math.max(0, Math.min(level, 8) - 1);
     return Math.min(BALANCE.maxPullDuration, Math.max(BALANCE.minPullDuration, raw));

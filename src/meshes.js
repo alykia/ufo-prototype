@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { BALANCE } from "./balance.js";
+import { MAPS } from "./maps.js";
 import { EW_Z, NS_X, ROAD_HALF } from "./roads.js";
 
 const geos = new Map();
@@ -556,23 +557,67 @@ function addTrees(group, spots) {
     }
 }
 
+const FARM_PADS = [
+    {
+        color: 0x3d6230,
+        points: [
+            { x: -3.55, z: 4.35 },
+            { x: -0.55, z: 4.15 },
+            { x: -0.45, z: 1.55 },
+            { x: -1.85, z: 1.05 },
+            { x: -3.60, z: 1.35 },
+        ],
+        gapEdge: 1,
+    },
+    {
+        color: 0x4a6a32,
+        points: [
+            { x: -3.50, z: -0.85 },
+            { x: -0.50, z: -0.75 },
+            { x: -0.65, z: -2.55 },
+            { x: -2.20, z: -3.15 },
+            { x: -3.55, z: -2.35 },
+        ],
+        gapEdge: 0,
+    },
+    {
+        color: 0x355434,
+        points: [
+            { x: -3.45, z: -3.45 },
+            { x: -0.85, z: -3.55 },
+            { x: -0.55, z: -5.35 },
+            { x: -3.50, z: -5.15 },
+        ],
+        gapEdge: 0,
+    },
+    {
+        color: 0x3a552c,
+        points: [
+            { x: 2.45, z: 4.20 },
+            { x: 3.65, z: 3.85 },
+            { x: 3.55, z: 2.15 },
+            { x: 2.55, z: 1.85 },
+        ],
+        gapEdge: 3,
+    },
+];
+
+const ZOO_PAD_COLOR = {
+    ice: 0xc8d8e0,
+    savanna: 0xc4a86a,
+    forest: 0x2a4a28,
+};
+
 function buildFarm(group) {
     group.add(plane(BALANCE.visualGroundWidth, BALANCE.visualGroundDepth, 0x1e3420, 0, -0.01, -6));
     group.add(plane(BALANCE.worldWidth + 2.4, BALANCE.worldDepth + 6, 0x2a4628, 0, 0, -1.8));
-    group.add(plane(3.4, 4.6, 0x3a5a2c, -2.05, 0.01, -2.4));
-    group.add(plane(3.2, 3.2, 0x355034, -2.0, 0.012, 3.15));
-    group.add(plane(2.8, 2.8, 0x2e3a38, -1.9, 0.011, -4.6));
+    for (const pad of FARM_PADS) enclosurePad(group, pad, pad.color);
     group.add(plane(ROAD_HALF * 2.05, BALANCE.visualGroundDepth * 0.7, 0x3a3a42, NS_X, 0.014, -4));
     group.add(plane(BALANCE.visualGroundWidth * 0.55, ROAD_HALF * 2.05, 0x3a3a42, 0, 0.015, EW_Z));
     addDashes(group, true, NS_X, EW_Z);
     addDashes(group, false, 0, NS_X, 0, EW_Z);
-    for (const z of [-3.4, -2.4, -1.4]) {
-        const post = cyl(0.035, 0.04, 0.32, 0x6a5030, 0.16, 5);
-        post.position.set(-0.35, 0.16, z);
-        group.add(post);
-    }
     addTrees(group, [
-        [-3.7, -5.4], [3.7, -5.2], [-3.7, 5.2], [3.7, 5.1], [3.6, -2.4], [-3.6, -1.4], [3.55, 2.8],
+        [-3.7, -5.4], [3.7, -5.2], [-3.7, 5.2], [3.7, 5.1], [3.6, -2.4], [-3.6, -0.2], [3.85, 1.35],
         [-4.2, -8.2], [4.1, -8.6], [-2.4, -9.4], [2.8, -10.2], [-5.0, -7.1], [5.2, -7.4],
         [-3.2, -12.0], [3.4, -12.6], [0.6, -11.4], [-5.4, -10.8], [5.6, -11.2],
     ]);
@@ -601,28 +646,49 @@ function rail(group, x1, z1, x2, z2, color = 0x8a8a70) {
     const dx = x2 - x1;
     const dz = z2 - z1;
     const len = Math.hypot(dx, dz);
+    if (len < 0.05) return;
     const m = box(len, 0.08, 0.06, color, 0.22);
     m.position.set((x1 + x2) / 2, 0.22, (z1 + z2) / 2);
-    m.rotation.y = Math.atan2(dx, dz);
+    m.rotation.y = Math.atan2(dx, dz) - Math.PI / 2;
     group.add(m);
 }
 
-function enclosurePad(group, boxPad, color) {
-    const w = boxPad.xMax - boxPad.xMin;
-    const d = boxPad.zMax - boxPad.zMin;
-    group.add(plane(w, d, color, (boxPad.xMin + boxPad.xMax) / 2, 0.012, (boxPad.zMin + boxPad.zMax) / 2));
-    rail(group, boxPad.xMin, boxPad.zMin, boxPad.xMax, boxPad.zMin);
-    rail(group, boxPad.xMin, boxPad.zMax, boxPad.xMax, boxPad.zMax);
-    rail(group, boxPad.xMin, boxPad.zMin, boxPad.xMin, boxPad.zMax);
-    rail(group, boxPad.xMax, boxPad.zMin, boxPad.xMax, boxPad.zMax);
+function polyPlane(points, color, y) {
+    const shape = new THREE.Shape();
+    shape.moveTo(points[0].x, -points[0].z);
+    for (let i = 1; i < points.length; i++) shape.lineTo(points[i].x, -points[i].z);
+    shape.closePath();
+    const mesh = new THREE.Mesh(
+        new THREE.ShapeGeometry(shape),
+        mat(`poly:${color}`, color, { side: THREE.DoubleSide }),
+    );
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = y;
+    return mesh;
+}
+
+function enclosurePad(group, pad, color) {
+    const pts = pad.points;
+    if (!pts?.length) return;
+    group.add(polyPlane(pts, color, 0.012));
+    const gap = pad.gapEdge ?? -1;
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        if (i !== gap) rail(group, a.x, a.z, b.x, b.z);
+        const post = cyl(0.035, 0.04, 0.3, 0x6a6a50, 0.16, 5);
+        post.position.set(a.x, 0.16, a.z);
+        group.add(post);
+    }
 }
 
 function buildZoo(group) {
     group.add(plane(BALANCE.visualGroundWidth, BALANCE.visualGroundDepth, 0x1a2818, 0, -0.01, -6));
     group.add(plane(BALANCE.worldWidth + 2.4, BALANCE.worldDepth + 6, 0x2c3c24, 0, 0, -1.8));
-    enclosurePad(group, { xMin: -3.6, xMax: -0.35, zMin: -1.1, zMax: 2.8 }, 0xc8d8e0);
-    enclosurePad(group, { xMin: 0.45, xMax: 3.7, zMin: -1.3, zMax: 3.0 }, 0xc4a86a);
-    enclosurePad(group, { xMin: -3.4, xMax: 3.4, zMin: -5.5, zMax: -2.0 }, 0x2a4a28);
+    const zoo = MAPS.zoo.enclosures;
+    for (const id of Object.keys(zoo)) {
+        enclosurePad(group, zoo[id], ZOO_PAD_COLOR[id] || 0x4a6a38);
+    }
     group.add(plane(0.55, 11.2, 0x5a5348, 0.15, 0.016, 0));
     group.add(plane(7.2, 0.5, 0x5a5348, 0, 0.016, 4.0));
     addTrees(group, [[-3.8, 5.2], [3.8, 5.1], [-3.9, -6.0], [3.8, -6.1], [0, -6.4]]);
