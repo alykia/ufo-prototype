@@ -116,6 +116,13 @@ export function systemCap(unlockedMaps = ["farm"]) {
     return 5;
 }
 
+export function sessionCaptureGoal(mapId, successfulExpeditions = 0) {
+    const base = mapId === "zoo" ? 10 : mapId === "town" ? 7 : 5;
+    const climb = Math.min(4, Math.max(0, successfulExpeditions));
+    const roll = 1 + Math.floor(Math.random() * 3);
+    return base + climb + roll;
+}
+
 export function newestMap(unlockedMaps = ["farm"]) {
     for (let i = MAP_ORDER.length - 1; i >= 0; i--) {
         if (unlockedMaps.includes(MAP_ORDER[i])) return MAP_ORDER[i];

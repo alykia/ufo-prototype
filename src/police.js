@@ -129,7 +129,7 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast })
         for (let i = 0; i < cars.length; i++) cars[i].leaving = i >= want;
     }
 
-    function update(dt, ufo, suspicion, cloakMul, addSuspicion, elapsed = 0) {
+    function update(dt, ufo, suspicion, cloakMul, addSuspicion, elapsed = 0, detectable = true) {
         if (finished) return { surrounding: true };
 
         if (suspicion >= 100 && !surrounding) {
@@ -181,7 +181,7 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast })
             } else if (want <= BALANCE.policeCount80) {
                 patrolToward(car, dt, speed);
                 const d = Math.hypot(car.mesh.position.x - ufo.position.x, car.mesh.position.z - ufo.position.z);
-                if (d < BALANCE.policeCatchRadius && car.catchReady <= 0) {
+                if (detectable && d < BALANCE.policeCatchRadius && car.catchReady <= 0) {
                     car.catchReady = BALANCE.policeCatchCooldown;
                     addSuspicion(BALANCE.policeCatchSuspicion * cloakMul);
                     toast("SPOTTED", "warn");
@@ -189,7 +189,7 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast })
             } else {
                 driveToward(car, ufo.position.x, ufo.position.z, dt, speed);
                 const d = Math.hypot(car.mesh.position.x - ufo.position.x, car.mesh.position.z - ufo.position.z);
-                if (d < BALANCE.policeCatchRadius && car.catchReady <= 0) {
+                if (detectable && d < BALANCE.policeCatchRadius && car.catchReady <= 0) {
                     car.catchReady = BALANCE.policeCatchCooldown;
                     addSuspicion(BALANCE.policeCatchSuspicion * cloakMul);
                     toast("SPOTTED", "warn");

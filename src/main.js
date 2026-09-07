@@ -26,6 +26,7 @@ import {
     enclosurePoint,
     mapDef,
     newestMap,
+    sessionCaptureGoal,
     systemCap,
 } from "./maps.js";
 
@@ -54,7 +55,8 @@ const els = {
     hudCloak: $("hud-cloak"),
     susFill: $("sus-fill"),
     susPct: $("sus-pct"),
-    resVal: $("res-val"),
+    goalBanner: $("goal-banner"),
+    goalText: $("goal-text"),
     warn: $("warn"),
     extractBtn: $("extract-btn"),
     settingsBtn: $("settings-btn"),
@@ -97,6 +99,8 @@ let joyActive = false;
 let joyPointerId = null;
 let joyOriginX = 0;
 let joyOriginY = 0;
+let beamExtend = 0;
+let goalBannerUntil = 0;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x152418);
@@ -170,6 +174,7 @@ function emptyExpedition() {
     return {
         sessionResearch: 0,
         quota: calculateExpeditionQuota(1, 0),
+        captureGoal: 6,
         quotaReached: false,
         suspicion: 0,
         abducted: 0,
@@ -200,16 +205,72 @@ function clampToPlay(x, z) {
     };
 }
 
-function syncBeam() {
+function isBeamHeld() {
+    return simRunning() && !police.isSurrounding() && (joyActive || joyInput.lengthSq() > 1e-4);
+}
+
+function applyBeamVisual() {
     const r = beamRadiusFor(persist.upgrades.beam);
     const hover = BALANCE.ufoHoverY;
-    ufo.userData.beam.scale.set(r, hover, r);
-    ufo.userData.beam.position.y = -hover / 2;
+    const t = beamExtend;
+    const h = Math.max(0.05, hover * Math.max(t, 0.04));
+    const shown = t > 0.06;
+    ufo.userData.beam.visible = shown;
+    ufo.userData.ring.visible = t > 0.2;
+    ufo.userData.beam.scale.set(r * Math.max(0.22, t), h, r * Math.max(0.22, t));
+    ufo.userData.beam.position.y = -h / 2;
     ufo.userData.ring.scale.setScalar(r);
-    ufo.userData.ring.position.y = -hover + 0.03;
+    ufo.userData.ring.position.y = -h + 0.03;
     if (debugHelpers?.userData.beamGuide) {
         debugHelpers.userData.beamGuide.scale.setScalar(r);
+        debugHelpers.userData.beamGuide.visible = t > 0.2 && (debugOn || DEBUG);
     }
+}
+
+function syncBeam() {
+    applyBeamVisual();
+}
+
+function updateBeam(dt) {
+    const want = isBeamHeld() ? 1 : 0;
+    const rate = want > beamExtend ? 18 : 20;
+    beamExtend += (want - beamExtend) * Math.min(1, rate * dt);
+    if (Math.abs(want - beamExtend) < 0.02) beamExtend = want;
+    applyBeamVisual();
+}
+
+function dropAllBeamTargets() {
+    for (const spec of specimens) {
+        if (spec.state === "abducting" || spec.state === "resisting") releaseFromBeam(spec);
+    }
+}
+
+function releaseFromBeam(spec) {
+    spec.state = "idle";
+    spec.abductT = 0;
+    spec.resistT = 0;
+    spec.mesh.position.y = 0;
+    spec.mesh.rotation.x = 0;
+    spec.mesh.rotation.z = 0;
+    spec.mesh.scale.set(1, 1, 1);
+    spec.rest.x = spec.mesh.position.x;
+    spec.rest.y = 0;
+    spec.rest.z = spec.mesh.position.z;
+    spec.rest.ry = spec.mesh.rotation.y;
+    refreshLabel(spec);
+    updateBlobShadow(spec.mesh);
+}
+
+function showGoalBanner(n) {
+    if (!els.goalBanner || !els.goalText) return;
+    els.goalText.textContent = `ABDUCT ${n}`;
+    els.goalBanner.classList.remove("hidden");
+    goalBannerUntil = 2.4;
+}
+
+function hideGoalBanner() {
+    goalBannerUntil = 0;
+    if (els.goalBanner) els.goalBanner.classList.add("hidden");
 }
 
 function derived() {
@@ -308,6 +369,9 @@ function showMenu() {
     pickups.clear();
     police.clear();
     endJoystick();
+    hideGoalBanner();
+    beamExtend = 0;
+    applyBeamVisual();
     els.menuRestart.classList.toggle("hidden", !persist.hasPlayed);
     paintMapRow();
     syncHud();
@@ -322,6 +386,7 @@ function startExpedition() {
         persist.successfulExpeditions,
         map.quotaBonus,
     );
+    expedition.captureGoal = sessionCaptureGoal(persist.selectedMap, persist.successfulExpeditions);
     persist.hasPlayed = true;
     save();
     clearSpecimens();
@@ -338,6 +403,8 @@ function startExpedition() {
     syncBeam();
     pickups.clear();
     seedField();
+    beamExtend = 0;
+    applyBeamVisual();
     gameState = STATE.EXPEDITION;
     stage.classList.remove("on-menu");
     els.menu.classList.add("hidden");
@@ -345,11 +412,12 @@ function startExpedition() {
     els.endScreen.classList.add("hidden");
     management.hide();
     indexBook.hide();
+    showGoalBanner(expedition.captureGoal);
     syncHud();
 }
 
 function seedField() {
-    const band = escalationBand(0, expedition.quota);
+    const band = escalationBand(0, expedition.captureGoal);
     for (let i = 0; i < 6; i++) {
         const c = counts();
         spawnSpecimen(pickLiftable(band, c));
@@ -360,6 +428,9 @@ function seedField() {
 
 function endExpedition(reason) {
     if (!simRunning()) return;
+    hideGoalBanner();
+    beamExtend = 0;
+    applyBeamVisual();
     persist.bankedResearch += expedition.sessionResearch;
     persist.hasPlayed = true;
     persist.bestSessionResearch = Math.max(persist.bestSessionResearch, expedition.sessionResearch);
@@ -382,15 +453,15 @@ function endExpedition(reason) {
         detected: "UFO DETECTED",
     };
     const subs = {
-        success: "Quota met. Session Research banked.",
-        failed: "Quota missed. Session Research still banked.",
+        success: "Goal met. Session Research banked.",
+        failed: "Goal missed. Session Research still banked.",
         detected: "Forced extract. Session Research still banked.",
     };
     els.endTitle.textContent = titles[expedition.result];
     els.endSub.textContent = subs[expedition.result];
     els.endStats.textContent = [
         `Session Research  ${expedition.sessionResearch}`,
-        `Quota             ${expedition.quota}  ${expedition.quotaReached ? "✓" : ""}`,
+        `Goal              ${expedition.abducted} / ${expedition.captureGoal}  ${expedition.quotaReached ? "✓" : ""}`,
         `Abducted          ${expedition.abducted}`,
         `Largest target    ${expedition.largestLabel}`,
         `Max Suspicion     ${Math.round(expedition.maxSuspicion)}%`,
@@ -407,7 +478,7 @@ function endExpedition(reason) {
 function completeQuota() {
     if (expedition.quotaReached) return;
     expedition.quotaReached = true;
-    toast("QUOTA COMPLETE");
+    toast("GOAL COMPLETE");
     endExpedition("quota");
 }
 
@@ -552,7 +623,7 @@ function pickLiftable(band, c) {
 function trySpawn(force = false) {
     const c = counts();
     if (c.all >= BALANCE.maxActiveTargets) return;
-    const band = escalationBand(expedition.sessionResearch, expedition.quota);
+    const band = escalationBand(expedition.abducted, expedition.captureGoal);
     const core = persist.upgrades.core;
     let def;
     const limits = mapLimits();
@@ -638,6 +709,7 @@ function xzDist(ax, az, bx, bz) {
 }
 
 function tryCapture(spec, stats) {
+    if (!isBeamHeld()) return;
     if (spec.state !== "idle") return;
     const d = xzDist(spec.mesh.position.x, spec.mesh.position.z, ufo.position.x, ufo.position.z);
     if (d > stats.radius) return;
@@ -681,7 +753,7 @@ function finishAbduction(spec, stats) {
         }
         if (spec.def.rareEvent) expedition.rareCaptures += 1;
         pickups.show(spec.def);
-        if (expedition.sessionResearch >= expedition.quota) {
+        if (expedition.abducted >= expedition.captureGoal) {
             completeQuota();
         }
         save();
@@ -693,7 +765,11 @@ function finishAbduction(spec, stats) {
 
 function updateSpecimens(dt, stats) {
     const remove = [];
+    const beamHeld = isBeamHeld();
     for (const spec of specimens) {
+        if (!beamHeld && (spec.state === "abducting" || spec.state === "resisting")) {
+            releaseFromBeam(spec);
+        }
         if (spec.state === "abducting") {
             spec.abductT += dt;
             const t = Math.min(1, spec.abductT / spec.abductDur);
@@ -864,10 +940,15 @@ function updateWorld(dt) {
         gameState = STATE.EXPEDITION;
     }
     updateUfo(dt, stats);
+    updateBeam(dt);
+    if (goalBannerUntil > 0) {
+        goalBannerUntil = Math.max(0, goalBannerUntil - dt);
+        if (goalBannerUntil <= 0) hideGoalBanner();
+    }
     updateSpecimens(dt, stats);
     const cops = police.update(dt, ufo, expedition.suspicion, stats.cloakMul, (amt) => {
         expedition.suspicion = Math.min(100, expedition.suspicion + amt);
-    }, expedition.elapsed);
+    }, expedition.elapsed, isBeamHeld());
     if (!cops.surrounding && expedition.elapsed - lastAbductAt >= BALANCE.suspicionDecayDelay) {
         expedition.suspicion = Math.max(0, expedition.suspicion - stats.decay * dt);
     }
@@ -888,14 +969,13 @@ function projectLabel(spec) {
 }
 
 function syncHud() {
-    const q = expedition.quota;
+    const goal = expedition.captureGoal;
     const done = expedition.quotaReached ? " ✓" : "";
-    els.quotaLabel.textContent = `QUOTA ${expedition.sessionResearch} / ${q}${done}`;
-    els.researchFill.style.width = `${Math.min(100, (expedition.sessionResearch / Math.max(1, q)) * 100)}%`;
+    els.quotaLabel.textContent = `GOAL ${expedition.abducted} / ${goal}${done}`;
+    els.researchFill.style.width = `${Math.min(100, (expedition.abducted / Math.max(1, goal)) * 100)}%`;
     els.hudCore.textContent = `CORE ${persist.upgrades.core}`;
     els.hudBeam.textContent = `BEAM ${persist.upgrades.beam}`;
     els.hudCloak.textContent = `CLOAK ${persist.upgrades.cloak}`;
-    els.resVal.textContent = String(expedition.sessionResearch);
     const sus = Math.round(expedition.suspicion);
     els.susPct.textContent = `${sus}%`;
     els.susFill.style.width = `${Math.min(100, expedition.suspicion)}%`;
@@ -919,10 +999,10 @@ function syncHud() {
     debugHelpers.visible = debugOn || DEBUG;
     if (debugOn) {
         debugEl.classList.remove("hidden");
-        const band = escalationBand(expedition.sessionResearch, expedition.quota);
+        const band = escalationBand(expedition.abducted, expedition.captureGoal);
         debugEl.textContent = [
             `state ${gameState}  band ${band}  map ${persist.selectedMap}  cap ${systemCap(persist.unlockedMaps)}`,
-            `session ${expedition.sessionResearch}  banked ${persist.bankedResearch}  quota ${q}`,
+            `goal ${expedition.abducted}/${expedition.captureGoal}  session ${expedition.sessionResearch}  banked ${persist.bankedResearch}`,
             `core ${persist.upgrades.core} beam ${persist.upgrades.beam} cloak ${persist.upgrades.cloak} scan ${persist.upgrades.scanner} prop ${persist.upgrades.propulsion}`,
             `specs ${specimens.length} abducting ${abductingCount()} sus ${expedition.suspicion.toFixed(1)}`,
             `R +session  U +banked  S +sus  Q quota  B bigfoot  E extract`,
@@ -989,10 +1069,12 @@ function endJoystick(ev) {
     if (joyPointerId != null && stage.hasPointerCapture?.(joyPointerId)) {
         try { stage.releasePointerCapture(joyPointerId); } catch { /* already released */ }
     }
+    const wasHeld = joyActive;
     joyActive = false;
     joyPointerId = null;
     joyInput.set(0, 0);
     joyEl.classList.add("hidden");
+    if (wasHeld) dropAllBeamTargets();
 }
 
 function beginJoystick(ev) {
@@ -1062,6 +1144,9 @@ function openSettings(from) {
     if (simRunning()) gameState = STATE.SETTINGS;
     else gameState = STATE.SETTINGS;
     endJoystick();
+    dropAllBeamTargets();
+    beamExtend = 0;
+    applyBeamVisual();
     els.modal.classList.remove("hidden");
     els.modalPanel.innerHTML = `
       <h2>SETTINGS</h2>
@@ -1117,7 +1202,8 @@ function onDebugKey(ev) {
     if (!debugOn && !DEBUG) return;
     if (ev.key === "r" || ev.key === "R") {
         expedition.sessionResearch += 20;
-        if (expedition.sessionResearch >= expedition.quota) completeQuota();
+        expedition.abducted += 1;
+        if (expedition.abducted >= expedition.captureGoal) completeQuota();
     }
     if (ev.key === "u" || ev.key === "U") {
         persist.bankedResearch += 100;
@@ -1125,7 +1211,7 @@ function onDebugKey(ev) {
     }
     if (ev.key === "s" || ev.key === "S") expedition.suspicion = Math.min(100, expedition.suspicion + 10);
     if (ev.key === "q" || ev.key === "Q") {
-        expedition.sessionResearch = Math.max(expedition.sessionResearch, expedition.quota);
+        expedition.abducted = Math.max(expedition.abducted, expedition.captureGoal);
         completeQuota();
     }
     if (ev.key === "b" || ev.key === "B") spawnBigfoot();

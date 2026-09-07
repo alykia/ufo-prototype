@@ -84,6 +84,27 @@
       border-radius: 4px;
       overflow: hidden;
     }
+    #sus-row {
+      margin-top: 7px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+    }
+    #sus-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #ff3a3a;
+      text-shadow: 0 0 8px rgba(255, 40, 40, 0.45);
+    }
+    .sus-eye {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 14px;
+    }
     #research-fill {
       height: 100%;
       width: 0%;
@@ -107,15 +128,6 @@
       padding: 8px 10px 10px;
       background: linear-gradient(to top, rgba(6, 8, 16, 0.96), rgba(6, 8, 16, 0.78), transparent);
     }
-    #sus-row, #res-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-    }
-    #res-row { margin-top: 4px; }
     .meter {
       flex: 1;
       height: 12px;
@@ -132,7 +144,7 @@
     #sus-fill.warn { background: #e0c04a; }
     #sus-fill.high { background: #e07a3a; }
     #sus-fill.danger { background: #e44545; }
-    #sus-pct, #res-val { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+    #sus-pct { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; color: #ff8a8a; }
     #warn {
       min-height: 16px;
       margin: 4px 0 6px;
@@ -232,9 +244,42 @@
       font-size: 20px;
       cursor: pointer;
     }
+    #goal-banner {
+      position: absolute;
+      top: 36%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 6;
+      text-align: center;
+      pointer-events: none;
+      padding: 14px 22px;
+      background: rgba(8, 12, 20, 0.88);
+      border: 2px solid #d6ff6a;
+      border-radius: 12px;
+      box-shadow: 0 0 24px rgba(214, 255, 106, 0.28);
+      animation: goal-pop 0.22s cubic-bezier(0.2, 1.4, 0.3, 1);
+    }
+    #goal-kicker {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: #c9d6c0;
+      margin-bottom: 4px;
+    }
+    #goal-text {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      color: #d6ff6a;
+      text-shadow: 0 2px 0 #000;
+    }
+    @keyframes goal-pop {
+      from { opacity: 0; transform: translate(-50%, -50%) scale(0.82); }
+      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
     #toasts {
       position: absolute;
-      top: 78px;
+      top: 118px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 5;
@@ -266,7 +311,7 @@
     #pickups {
       position: absolute;
       left: 50%;
-      top: 102px;
+      top: 136px;
       z-index: 5;
       width: 48%;
       pointer-events: none;
@@ -449,7 +494,7 @@
     }
     #modal.hidden, #end-screen.hidden, #confirm.hidden, #debug.hidden,
     #alert-frame.hidden, #red-alert.hidden, #management.hidden,
-    #upgrade-panel.hidden, #index-book.hidden, #index-detail.hidden { display: none; }
+    #upgrade-panel.hidden, #index-book.hidden, #index-detail.hidden, #goal-banner.hidden { display: none; }
     .panel {
       width: min(100%, 320px);
       max-height: 92%;
@@ -893,28 +938,33 @@
       <div id="hud-top-row">
         <div>
           <div id="title-block">EARTH RESEARCH</div>
-          <div id="quota-label">QUOTA 0 / 120</div>
+          <div id="quota-label">GOAL 0 / 6</div>
         </div>
       </div>
       <div id="research-bar"><div id="research-fill"></div></div>
+      <div id="sus-row">
+        <span id="sus-label">
+          <svg class="sus-eye" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path fill="currentColor" d="M12 5C6.2 5 1.4 8.6 0 12c1.4 3.4 6.2 7 12 7s10.6-3.6 12-7c-1.4-3.4-6.2-7-12-7zm0 11.5A4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 0 1 0 9zm0-3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+          </svg>
+          SUSPICION
+        </span>
+        <div class="meter"><div id="sus-fill"></div></div>
+        <span id="sus-pct">0%</span>
+      </div>
       <div id="build-row">
         <span id="hud-core">CORE 1</span>
         <span id="hud-beam">BEAM 1</span>
         <span id="hud-cloak">CLOAK 1</span>
       </div>
     </div>
+    <div id="goal-banner" class="hidden">
+      <div id="goal-kicker">THIS SESSION</div>
+      <div id="goal-text">ABDUCT 6</div>
+    </div>
     <div id="toasts"></div>
     <div id="pickups"></div>
     <div id="hud-bottom">
-      <div id="sus-row">
-        <span>SUSPICION</span>
-        <div class="meter"><div id="sus-fill"></div></div>
-        <span id="sus-pct">0%</span>
-      </div>
-      <div id="res-row">
-        <span>SESSION</span>
-        <span id="res-val">0</span>
-      </div>
       <div id="warn"></div>
       <div id="extract-wrap">
         <button id="extract-btn" type="button">EXTRACT</button>
