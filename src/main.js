@@ -4,6 +4,7 @@ import {
     DEBUG,
     beamRadiusFor,
     calculateExpeditionQuota,
+    goalBonusFor,
     cloakSuspicionMultiplier,
     escalationBand,
     moveStats,
@@ -81,7 +82,9 @@ const els = {
     researchInfoName: $("research-info-name"),
     researchInfoBlurb: $("research-info-blurb"),
     researchQuotaStat: $("research-quota-stat"),
+    researchGoalStat: $("research-goal-stat"),
     researchPoliceStat: $("research-police-stat"),
+    goalBonus: $("goal-bonus"),
     researchQuip: $("research-quip"),
 };
 
@@ -190,6 +193,7 @@ function emptyExpedition() {
         sessionResearch: 0,
         quota: calculateExpeditionQuota(1, 0),
         goals: [],
+        goalBonus: 0,
         goalReached: false,
         quotaReached: false,
         sessionCatches: {},
@@ -280,11 +284,16 @@ function releaseFromBeam(spec) {
     updateBlobShadow(spec.mesh);
 }
 
-function showGoalBanner(goals) {
+function showGoalBanner(goals, bonus = 0) {
     if (!els.goalBanner || !els.goalText) return;
     els.goalText.innerHTML = goals.map((g) => `<div>${g.need} ${goalLabel(g)}</div>`).join("");
+    if (els.goalBonus) {
+        els.goalBonus.textContent = bonus > 0
+            ? `Complete for +${bonus} Quota bonus`
+            : "";
+    }
     els.goalBanner.classList.remove("hidden");
-    goalBannerUntil = 2.8;
+    goalBannerUntil = 3.8;
 }
 
 function goalSummary(goals = []) {
@@ -429,6 +438,7 @@ function startExpedition() {
         persist.upgrades.core,
         persist.successfulExpeditions,
     );
+    expedition.goalBonus = goalBonusFor(expedition.quota);
     expedition.goalReached = false;
     persist.hasPlayed = true;
     save();
@@ -456,7 +466,7 @@ function startExpedition() {
     management.hide();
     indexBook.hide();
     hideResearchSuccess();
-    showGoalBanner(expedition.goals);
+    showGoalBanner(expedition.goals, expedition.goalBonus);
     paintGoalRow();
     syncHud();
 }
@@ -559,7 +569,7 @@ function showResearchSuccess() {
     const rows = Object.keys(catches)
         .map((id) => ({ def: TARGET_BY_ID[id], count: catches[id], isNew: news.has(id) }))
         .filter((row) => row.def && row.count > 0)
-        .sort((a, b) => b.count - a.count || a.def.label.localeCompare(b.def.label));
+        .sort((a, b) => Number(b.isNew) - Number(a.isNew) || b.count - a.count || a.def.label.localeCompare(b.def.label));
     els.researchList.innerHTML = rows.length
         ? rows.map((row) => `
             <div class="research-row" data-id="${row.def.id}">
@@ -576,6 +586,11 @@ function showResearchSuccess() {
     const calls = expedition.policeCalls || 0;
     if (els.researchQuotaStat) {
         els.researchQuotaStat.textContent = `QUOTA ${expedition.sessionResearch} / ${expedition.quota}`;
+    }
+    if (els.researchGoalStat) {
+        const bonus = expedition.goalBonus || 0;
+        const got = expedition.goalReached && bonus > 0;
+        els.researchGoalStat.textContent = got ? `GOAL BONUS +${bonus}` : "";
     }
     if (els.researchPoliceStat) {
         els.researchPoliceStat.textContent = calls === 1
@@ -860,7 +875,9 @@ function finishAbduction(spec, stats) {
         pickups.show(spec.def);
         if (creditGoal(expedition.goals, spec.def.id) && goalFilled(expedition.goals) && !expedition.goalReached) {
             expedition.goalReached = true;
-            toast("GOAL COMPLETE");
+            const bonus = expedition.goalBonus || 0;
+            if (bonus > 0) expedition.sessionResearch += bonus;
+            toast(bonus > 0 ? `GOAL COMPLETE +${bonus}` : "GOAL COMPLETE");
         }
         paintGoalRow();
         if (expedition.sessionResearch >= expedition.quota) {

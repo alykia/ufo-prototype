@@ -286,6 +286,13 @@
       line-height: 1.18;
     }
     #goal-text div { white-space: nowrap; }
+    #goal-bonus {
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #eef3ea;
+    }
     @keyframes goal-pop {
       from { opacity: 0; transform: translate(-50%, -50%) scale(0.82); }
       to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -581,6 +588,7 @@
       color: #d6ff6a;
     }
     #research-police-stat { color: #ff8a8a; }
+    #research-goal-stat:empty { display: none; }
     #research-stats, #research-bridge, #research-continue, .research-panel h2, .research-panel .hint {
       flex-shrink: 0;
     }
@@ -1188,6 +1196,7 @@
     <div id="goal-banner" class="hidden">
       <div id="goal-kicker">THIS SESSION</div>
       <div id="goal-text"></div>
+      <div id="goal-bonus"></div>
     </div>
     <div id="toasts"></div>
     <div id="pickups"></div>
@@ -1231,6 +1240,7 @@
         <p class="hint">Quota met. Session Research banked.</p>
         <div id="research-stats">
           <span id="research-quota-stat">QUOTA 0 / 0</span>
+          <span id="research-goal-stat"></span>
           <span id="research-police-stat">POLICE CALLED 0 TIMES</span>
         </div>
         <div id="research-bridge">

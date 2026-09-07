@@ -96,6 +96,9 @@ export const BALANCE = {
     scannerRareBonusLv4: 1.25,
     scannerRareBonusLv5: 1.5,
     highValueThreshold: 25,
+    goalBonusQuotaFrac: 0.2,
+    goalBonusMin: 20,
+    goalBonusStep: 5,
 
     toastDuration: 1.3,
     pickupDuration: 2.2,
@@ -126,6 +129,11 @@ export function calculateExpeditionQuota(coreLevel, successfulExpeditions = 0, q
         + Math.max(0, coreLevel - 1) * BALANCE.quotaPerCoreLevel
         + Math.max(0, successfulExpeditions) * BALANCE.quotaPerExpedition
         + Math.max(0, quotaBonus);
+}
+
+export function goalBonusFor(quota) {
+    const raw = Math.max(BALANCE.goalBonusMin, quota * BALANCE.goalBonusQuotaFrac);
+    return Math.round(raw / BALANCE.goalBonusStep) * BALANCE.goalBonusStep;
 }
 
 export function escalationBand(sessionResearch, quota) {
