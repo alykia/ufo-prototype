@@ -26,9 +26,9 @@ import {
     enclosurePoint,
     mapDef,
     newestMap,
-    sessionCaptureGoal,
     systemCap,
 } from "./maps.js";
+import { creditGoal, goalFilled, goalLabel, goalSpawnMul, rollSessionGoal } from "./goals.js";
 
 const STATE = {
     MENU: "MENU",
@@ -57,6 +57,7 @@ const els = {
     susPct: $("sus-pct"),
     goalBanner: $("goal-banner"),
     goalText: $("goal-text"),
+    goalRow: $("goal-row"),
     warn: $("warn"),
     extractBtn: $("extract-btn"),
     settingsBtn: $("settings-btn"),
@@ -174,7 +175,8 @@ function emptyExpedition() {
     return {
         sessionResearch: 0,
         quota: calculateExpeditionQuota(1, 0),
-        captureGoal: 6,
+        goals: [],
+        goalReached: false,
         quotaReached: false,
         suspicion: 0,
         abducted: 0,
@@ -261,11 +263,29 @@ function releaseFromBeam(spec) {
     updateBlobShadow(spec.mesh);
 }
 
-function showGoalBanner(n) {
+function showGoalBanner(goals) {
     if (!els.goalBanner || !els.goalText) return;
-    els.goalText.textContent = `ABDUCT ${n}`;
+    els.goalText.innerHTML = goals.map((g) => `<div>${g.need} ${goalLabel(g)}</div>`).join("");
     els.goalBanner.classList.remove("hidden");
-    goalBannerUntil = 2.4;
+    goalBannerUntil = 2.8;
+}
+
+function goalSummary(goals = []) {
+    if (!goals.length) return "—";
+    return goals.map((g) => `${goalLabel(g)} ${g.have}/${g.need}`).join("  ");
+}
+
+function paintGoalRow() {
+    if (!els.goalRow) return;
+    const goals = expedition.goals || [];
+    if (!goals.length) {
+        els.goalRow.innerHTML = "";
+        return;
+    }
+    els.goalRow.innerHTML = goals.map((g) => {
+        const done = g.have >= g.need ? " done" : "";
+        return `<span class="goal-item${done}">${goalLabel(g)} ${g.have}/${g.need}</span>`;
+    }).join("");
 }
 
 function hideGoalBanner() {
@@ -386,7 +406,12 @@ function startExpedition() {
         persist.successfulExpeditions,
         map.quotaBonus,
     );
-    expedition.captureGoal = sessionCaptureGoal(persist.selectedMap, persist.successfulExpeditions);
+    expedition.goals = rollSessionGoal(
+        persist.selectedMap,
+        persist.upgrades.core,
+        persist.successfulExpeditions,
+    );
+    expedition.goalReached = false;
     persist.hasPlayed = true;
     save();
     clearSpecimens();
@@ -412,12 +437,13 @@ function startExpedition() {
     els.endScreen.classList.add("hidden");
     management.hide();
     indexBook.hide();
-    showGoalBanner(expedition.captureGoal);
+    showGoalBanner(expedition.goals);
+    paintGoalRow();
     syncHud();
 }
 
 function seedField() {
-    const band = escalationBand(0, expedition.captureGoal);
+    const band = escalationBand(0, expedition.quota);
     for (let i = 0; i < 6; i++) {
         const c = counts();
         spawnSpecimen(pickLiftable(band, c));
@@ -453,15 +479,16 @@ function endExpedition(reason) {
         detected: "UFO DETECTED",
     };
     const subs = {
-        success: "Goal met. Session Research banked.",
-        failed: "Goal missed. Session Research still banked.",
+        success: "Quota met. Session Research banked.",
+        failed: "Quota missed. Session Research still banked.",
         detected: "Forced extract. Session Research still banked.",
     };
     els.endTitle.textContent = titles[expedition.result];
     els.endSub.textContent = subs[expedition.result];
     els.endStats.textContent = [
         `Session Research  ${expedition.sessionResearch}`,
-        `Goal              ${expedition.abducted} / ${expedition.captureGoal}  ${expedition.quotaReached ? "✓" : ""}`,
+        `Quota             ${expedition.quota}  ${expedition.quotaReached ? "✓" : ""}`,
+        `Goal              ${goalSummary(expedition.goals)}  ${expedition.goalReached ? "✓" : ""}`,
         `Abducted          ${expedition.abducted}`,
         `Largest target    ${expedition.largestLabel}`,
         `Max Suspicion     ${Math.round(expedition.maxSuspicion)}%`,
@@ -478,7 +505,7 @@ function endExpedition(reason) {
 function completeQuota() {
     if (expedition.quotaReached) return;
     expedition.quotaReached = true;
-    toast("GOAL COMPLETE");
+    toast("QUOTA COMPLETE");
     endExpedition("quota");
 }
 
@@ -565,7 +592,7 @@ function pickDef(band, prefer) {
     const pool = targetsForMap(persist.selectedMap).filter((d) => !d.rareEvent && (!prefer || prefer(d)));
     let total = 0;
     const weights = pool.map((d) => {
-        const w = spawnWeightFor(d, band, core);
+        const w = spawnWeightFor(d, band, core) * goalSpawnMul(expedition.goals, d);
         total += w;
         return w;
     });
@@ -623,7 +650,7 @@ function pickLiftable(band, c) {
 function trySpawn(force = false) {
     const c = counts();
     if (c.all >= BALANCE.maxActiveTargets) return;
-    const band = escalationBand(expedition.abducted, expedition.captureGoal);
+    const band = escalationBand(expedition.sessionResearch, expedition.quota);
     const core = persist.upgrades.core;
     let def;
     const limits = mapLimits();
@@ -753,7 +780,12 @@ function finishAbduction(spec, stats) {
         }
         if (spec.def.rareEvent) expedition.rareCaptures += 1;
         pickups.show(spec.def);
-        if (expedition.abducted >= expedition.captureGoal) {
+        if (creditGoal(expedition.goals, spec.def.id) && goalFilled(expedition.goals) && !expedition.goalReached) {
+            expedition.goalReached = true;
+            toast("GOAL COMPLETE");
+        }
+        paintGoalRow();
+        if (expedition.sessionResearch >= expedition.quota) {
             completeQuota();
         }
         save();
@@ -969,10 +1001,11 @@ function projectLabel(spec) {
 }
 
 function syncHud() {
-    const goal = expedition.captureGoal;
+    const q = expedition.quota;
     const done = expedition.quotaReached ? " ✓" : "";
-    els.quotaLabel.textContent = `GOAL ${expedition.abducted} / ${goal}${done}`;
-    els.researchFill.style.width = `${Math.min(100, (expedition.abducted / Math.max(1, goal)) * 100)}%`;
+    els.quotaLabel.textContent = `QUOTA ${expedition.sessionResearch} / ${q}${done}`;
+    els.researchFill.style.width = `${Math.min(100, (expedition.sessionResearch / Math.max(1, q)) * 100)}%`;
+    paintGoalRow();
     els.hudCore.textContent = `CORE ${persist.upgrades.core}`;
     els.hudBeam.textContent = `BEAM ${persist.upgrades.beam}`;
     els.hudCloak.textContent = `CLOAK ${persist.upgrades.cloak}`;
@@ -999,10 +1032,11 @@ function syncHud() {
     debugHelpers.visible = debugOn || DEBUG;
     if (debugOn) {
         debugEl.classList.remove("hidden");
-        const band = escalationBand(expedition.abducted, expedition.captureGoal);
+        const band = escalationBand(expedition.sessionResearch, expedition.quota);
         debugEl.textContent = [
             `state ${gameState}  band ${band}  map ${persist.selectedMap}  cap ${systemCap(persist.unlockedMaps)}`,
-            `goal ${expedition.abducted}/${expedition.captureGoal}  session ${expedition.sessionResearch}  banked ${persist.bankedResearch}`,
+            `session ${expedition.sessionResearch}  banked ${persist.bankedResearch}  quota ${q}`,
+            `goal ${goalSummary(expedition.goals)}`,
             `core ${persist.upgrades.core} beam ${persist.upgrades.beam} cloak ${persist.upgrades.cloak} scan ${persist.upgrades.scanner} prop ${persist.upgrades.propulsion}`,
             `specs ${specimens.length} abducting ${abductingCount()} sus ${expedition.suspicion.toFixed(1)}`,
             `R +session  U +banked  S +sus  Q quota  B bigfoot  E extract`,
@@ -1202,8 +1236,7 @@ function onDebugKey(ev) {
     if (!debugOn && !DEBUG) return;
     if (ev.key === "r" || ev.key === "R") {
         expedition.sessionResearch += 20;
-        expedition.abducted += 1;
-        if (expedition.abducted >= expedition.captureGoal) completeQuota();
+        if (expedition.sessionResearch >= expedition.quota) completeQuota();
     }
     if (ev.key === "u" || ev.key === "U") {
         persist.bankedResearch += 100;
@@ -1211,7 +1244,7 @@ function onDebugKey(ev) {
     }
     if (ev.key === "s" || ev.key === "S") expedition.suspicion = Math.min(100, expedition.suspicion + 10);
     if (ev.key === "q" || ev.key === "Q") {
-        expedition.abducted = Math.max(expedition.abducted, expedition.captureGoal);
+        expedition.sessionResearch = Math.max(expedition.sessionResearch, expedition.quota);
         completeQuota();
     }
     if (ev.key === "b" || ev.key === "B") spawnBigfoot();
