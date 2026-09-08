@@ -1,5 +1,6 @@
 import { BALANCE } from "./balance.js";
 import { headingY, pickRoute } from "./roads.js";
+import { playSfx } from "./audio.js";
 
 const EDGES = [
     { x: 0, z: 7.4 },
@@ -136,6 +137,7 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast, o
             surrounding = true;
             surroundT = 0;
             toast("UFO SPOTTED", "bad", "police");
+            playSfx("surround");
         }
 
         const held = cars.filter((c) => !c.leaving).length;
@@ -143,11 +145,13 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast, o
         if (want >= BALANCE.policeCount80 && !announced80) {
             announced80 = true;
             toast("INBOUND", "warn", "police");
+            playSfx("inbound");
             if (onCall) onCall();
         }
         if (want >= BALANCE.policeCount90 && !announced90) {
             announced90 = true;
             toast("REINFORCEMENTS", "bad", "police");
+            playSfx("inbound");
             if (onCall) onCall();
         }
         if (want === 0) {
@@ -187,6 +191,7 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast, o
                     car.catchReady = BALANCE.policeCatchCooldown;
                     addSuspicion(BALANCE.policeCatchSuspicion * cloakMul);
                     toast("SPOTTED", "warn");
+                    playSfx("spotted");
                 }
             } else {
                 driveToward(car, ufo.position.x, ufo.position.z, dt, speed);
@@ -195,6 +200,7 @@ export function bindPolice({ scene, labelsEl, createPoliceCar, project, toast, o
                     car.catchReady = BALANCE.policeCatchCooldown;
                     addSuspicion(BALANCE.policeCatchSuspicion * cloakMul);
                     toast("SPOTTED", "warn");
+                    playSfx("spotted");
                 }
             }
         }

@@ -38,7 +38,7 @@ import { bridgeQuip } from "./bridgeQuips.js";
 import { FLOOR_LINE, TRAINING_RESULT_LINE } from "./bridgeLines.js";
 import { ALIEN_SVG, bindOnboarding } from "./onboarding.js";
 import { hydrateIcons, uiIcon } from "./uiIcons.js";
-import { bindMusicUnlock, setMusic, setMusicVolume } from "./audio.js";
+import { bindMusicUnlock, playSfx, setMusic, setMusicVolume, setSfxEnabled, syncSfxLoops } from "./audio.js";
 
 const STATE = {
     MENU: "MENU",
@@ -105,6 +105,7 @@ const els = {
 let persist = loadPersistent();
 let gameState = STATE.MENU;
 let settingsReturn = STATE.MENU;
+let sfxAlertBand = 0;
 let debugOn = DEBUG;
 // Per-run Training Expedition flags (reset in startExpedition).
 const trainingRun = { cowSpawned: false, bumpDone: false, suspicionFired: false, upgraded: false, floorLine: false };
@@ -244,6 +245,7 @@ if (els.endAlien) els.endAlien.innerHTML = ALIEN_SVG;
 
 bindShell();
 bindMusicUnlock();
+setSfxEnabled(persist.settings.soundOn);
 setMusicVolume(persist.settings.musicVolume);
 resize();
 showMenu();
@@ -524,6 +526,7 @@ function syncMapUnlocks(announce) {
         unlocked = true;
         if (announce) {
             toast("TOWN UNLOCKED", "", "town");
+            playSfx("unlock");
             onboarding.tip("townUnlocked");
         }
     }
@@ -533,6 +536,7 @@ function syncMapUnlocks(announce) {
         unlocked = true;
         if (announce) {
             toast("ZOO UNLOCKED", "", "zoo");
+            playSfx("unlock");
             onboarding.tip("zooUnlocked");
         }
     }
@@ -657,7 +661,9 @@ function startExpedition() {
     // The welcome beat pauses the world; startTraining ran before the state
     // flipped to EXPEDITION, so apply the hold now that the sim is live.
     if (training && onboarding.hasBubble()) holdWorld(true);
+    sfxAlertBand = 0;
     syncMusic({ restart: true });
+    playSfx("play");
 }
 
 function seedField() {
@@ -707,6 +713,9 @@ function endExpedition(reason) {
     onboarding.event("expeditionEnd");
     showResearchSuccess();
     syncMusic({ restart: true });
+    if (expedition.result === "detected") playSfx("detected");
+    else if (expedition.result === "success") playSfx("success");
+    else playSfx("fail");
 }
 
 function resultQuip() {
@@ -826,6 +835,7 @@ function buyUpgrade(system) {
     persist.bankedResearch -= cost;
     persist.upgrades[system] += 1;
     trainingRun.upgraded = true;
+    playSfx("upgrade");
     syncMapUnlocks(true);
     save();
     syncBeam();
@@ -1057,6 +1067,7 @@ function spawnBigfoot() {
     const pos = randomFieldPoint(true);
     spawnSpecimen(TARGET_BY_ID.bigfoot, pos);
     toast("UNKNOWN SPECIMEN DETECTED", "rare");
+    playSfx("rare");
     gameState = STATE.RARE_EVENT;
     rareBannerUntil = expedition.elapsed + BALANCE.rareEventBanner;
     onboarding.tip("bigfoot");
@@ -1090,6 +1101,7 @@ function tryCapture(spec, stats) {
         spec.tooHeavyUntil = expedition.elapsed + BALANCE.tooHeavyCooldown;
         expedition.suspicion = Math.min(100, expedition.suspicion + BALANCE.tooHeavySuspicion * relativeWeight(spec.def.weightTier, persist.selectedMap) * stats.cloakMul * BALANCE.suspicionGainMul);
         toast("TOO HEAVY", "warn");
+        playSfx("tooHeavy");
         refreshLabel(spec);
         if (onboarding.gatesActive() && !trainingRun.bumpDone) {
             // One-off jump so the Suspicion eye visibly fills for the next beat.
@@ -1108,6 +1120,7 @@ function tryCapture(spec, stats) {
     spec.startZ = spec.mesh.position.z;
     spec.awarded = false;
     refreshLabel(spec);
+    playSfx("beamLock");
 }
 
 function finishAbduction(spec, stats) {
@@ -1128,6 +1141,7 @@ function finishAbduction(spec, stats) {
         }
         if (spec.def.rareEvent) expedition.rareCaptures += 1;
         pickups.show(spec.def);
+        playSfx("abduct");
         if (creditGoal(expedition.goals, spec.def.id)) {
             for (const other of specimens) refreshLabel(other);
         }
@@ -1136,6 +1150,7 @@ function finishAbduction(spec, stats) {
             const bonus = expedition.goalBonus || 0;
             if (bonus > 0) expedition.sessionResearch += bonus;
             toast(bonus > 0 ? `+${bonus}` : "DONE", "", "check");
+            playSfx("goal");
         }
         paintGoalRow();
         onboarding.event("abducted");
@@ -1388,6 +1403,7 @@ function syncHud() {
     els.alertFrame.classList.toggle("hidden", expedition.suspicion < 75 || !inField);
     els.alertFrame.classList.toggle("critical", expedition.suspicion >= 90);
     els.redAlert.classList.toggle("hidden", expedition.suspicion < 90 || !inField);
+    updateFieldSfx(inField);
     if (els.nextBtn) els.nextBtn.disabled = onboarding.gatesActive() && !trainingRun.upgraded;
     debugHelpers.visible = debugOn || DEBUG;
     if (debugOn) {
@@ -1520,6 +1536,7 @@ function bindShell() {
         const id = btn.dataset.map;
         if (!persist.unlockedMaps.includes(id)) {
             toast(`NEED UFO STATS AT LEVEL ${mapUnlockCore(id)}`, "warn", "lock");
+            playSfx("deny");
             return;
         }
         persist.selectedMap = id;
@@ -1527,9 +1544,13 @@ function bindShell() {
         clearSpecimens();
         applyPlayfield(id);
         paintMapRow();
+        playSfx("confirm");
     });
     $("menu-restart").addEventListener("click", () => askWipeConfirm());
-    $("menu-shop").addEventListener("click", () => toast("EMPTY", "", "shop"));
+    $("menu-shop").addEventListener("click", () => {
+        toast("EMPTY", "", "shop");
+        playSfx("deny");
+    });
     $("menu-settings").addEventListener("click", () => openSettings(STATE.MENU));
     els.settingsBtn.addEventListener("click", () => openSettings(gameState));
     $("open-management").addEventListener("click", () => openManagement());
@@ -1560,6 +1581,12 @@ function bindShell() {
     window.addEventListener("keydown", onDebugKey);
     window.addEventListener("keyup", (ev) => applyDebugJoyKeys(ev, false));
     window.addEventListener("resize", resize);
+    stage.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("button");
+        if (!btn || btn.disabled) return;
+        if (btn.id === "sound-toggle" || btn.id === "menu-shop" || btn.closest("#map-row")) return;
+        playSfx("tap");
+    }, true);
 }
 
 function openSettings(from) {
@@ -1654,8 +1681,28 @@ function musicWanted() {
     return null;
 }
 
+function updateFieldSfx(inField) {
+    let band = 0;
+    if (inField) {
+        if (expedition.suspicion >= 90) band = 2;
+        else if (expedition.suspicion >= 75) band = 1;
+    }
+    if (band > sfxAlertBand) {
+        if (band === 1) playSfx("warn");
+        else if (band === 2) playSfx("redAlert");
+    }
+    sfxAlertBand = band;
+    syncSfxLoops({
+        beam: isBeamHeld(),
+        siren: inField && police.activeCount() > 0 && band < 2,
+        alert: band === 2,
+    });
+}
+
 function syncMusic(opts) {
+    setSfxEnabled(persist.settings.soundOn);
     setMusic(musicWanted(), opts);
+    if (!persist.settings.soundOn) syncSfxLoops();
 }
 
 function applyDebugJoyKeys(ev, down) {
