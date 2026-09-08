@@ -38,7 +38,7 @@ import { bridgeQuip } from "./bridgeQuips.js";
 import { FLOOR_LINE, TRAINING_RESULT_LINE } from "./bridgeLines.js";
 import { ALIEN_SVG, bindOnboarding } from "./onboarding.js";
 import { hydrateIcons, uiIcon } from "./uiIcons.js";
-import { bindMusicUnlock, playSfx, setMusic, setMusicVolume, setSfxEnabled, syncSfxLoops } from "./audio.js";
+import { bindMusicUnlock, playSfx, setMusic, setMusicVolume, setSfxEnabled, speakAlien, stopAlienTalk, syncSfxLoops } from "./audio.js";
 
 const STATE = {
     MENU: "MENU",
@@ -746,6 +746,7 @@ function openManagement() {
 }
 
 function hideResearchSuccess() {
+    stopAlienTalk();
     if (!els.researchSuccess) return;
     els.researchSuccess.classList.add("hidden");
     els.researchSuccess.classList.remove("detected", "failed");
@@ -812,7 +813,11 @@ function showResearchSuccess() {
     if (els.researchPoliceStat) {
         els.researchPoliceStat.innerHTML = `${uiIcon("police")} ${calls}`;
     }
-    if (els.researchQuip) els.researchQuip.textContent = resultQuip();
+    if (els.researchQuip) {
+        const line = resultQuip();
+        els.researchQuip.textContent = line;
+        speakAlien(line);
+    }
     els.researchInfo.classList.add("hidden");
     els.endScreen.classList.add("hidden");
     els.researchSuccess.classList.remove("hidden");

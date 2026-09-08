@@ -73,7 +73,10 @@ function ensureCtx() {
 
 export function setSfxEnabled(on) {
     sfxOn = Boolean(on);
-    if (!sfxOn) stopAllLoops();
+    if (!sfxOn) {
+        stopAlienTalk();
+        stopAllLoops();
+    }
 }
 
 function env(gain, t, vol, attack, hold, release) {
@@ -122,6 +125,73 @@ function noise({ dur = 0.14, vol = 0.06, freq = 900, q = 0.8 }) {
 
 function later(ms, fn) {
     window.setTimeout(fn, ms);
+}
+
+const ALIEN_CPS = 30;
+const ALIEN_SCALE = [784, 880, 988, 1046, 1174, 1318, 1396, 1568];
+let talkIndex = 0;
+let talkTimers = [];
+
+function alienSyllable(ch, i) {
+    const c = ensureCtx();
+    if (!c || !sfxOn) return;
+    const vowel = /[aeiouy]/i.test(ch);
+    const n = (ch.toLowerCase().charCodeAt(0) * 17 + i * 31) & 255;
+    const freq = ALIEN_SCALE[n % ALIEN_SCALE.length];
+    const dur = vowel ? 0.07 : 0.04;
+    const vol = vowel ? 0.05 : 0.036;
+    const t = c.currentTime;
+    const osc = c.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.9, t + dur);
+    const spark = c.createOscillator();
+    spark.type = "sine";
+    spark.frequency.setValueAtTime(freq * 2.05, t);
+    const g = c.createGain();
+    const sg = c.createGain();
+    env(g, t, vol, 0.005, dur * 0.32, dur * 0.52);
+    env(sg, t, vol * 0.2, 0.008, dur * 0.18, dur * 0.55);
+    osc.connect(g);
+    spark.connect(sg);
+    g.connect(master);
+    sg.connect(master);
+    osc.start(t);
+    spark.start(t);
+    osc.stop(t + dur + 0.03);
+    spark.stop(t + dur + 0.03);
+}
+
+export function stopAlienTalk() {
+    for (const id of talkTimers) clearTimeout(id);
+    talkTimers = [];
+    talkIndex = 0;
+}
+
+export function alienTalkChar(ch) {
+    if (!sfxOn) return;
+    if (!/[A-Za-z0-9]/.test(ch)) return;
+    alienSyllable(ch, talkIndex);
+    talkIndex += 1;
+}
+
+export function speakAlien(text) {
+    stopAlienTalk();
+    if (!sfxOn) return;
+    const line = String(text || "");
+    if (!line) return;
+    let delay = 0;
+    for (const ch of line) {
+        const at = delay;
+        if (/[A-Za-z0-9]/.test(ch)) {
+            const idx = talkIndex;
+            talkIndex += 1;
+            talkTimers.push(setTimeout(() => alienSyllable(ch, idx), at * 1000));
+        }
+        delay += 1 / ALIEN_CPS;
+        if (/[.!?]/.test(ch)) delay += 0.1;
+        else if (/[,;:]/.test(ch)) delay += 0.05;
+    }
 }
 
 const SFX = {

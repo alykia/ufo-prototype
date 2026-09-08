@@ -1,4 +1,5 @@
 import { SKIP_LABEL, TIPS, TRAINING_BEATS } from "./bridgeLines.js";
+import { alienTalkChar, stopAlienTalk } from "./audio.js";
 
 // Shared alien avatar. Also used on the result screens.
 export const ALIEN_SVG = `
@@ -83,9 +84,12 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
         const line = item.line;
         let i = 0;
         textEl.textContent = "";
+        stopAlienTalk();
         typeTimer = setInterval(() => {
             i += 1;
+            const ch = line[i - 1];
             textEl.textContent = line.slice(0, i);
+            alienTalkChar(ch);
             if (i >= line.length) finishTyping();
         }, 1000 / TYPE_CPS);
     }
@@ -122,6 +126,7 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
 
     function hideBubble() {
         clearTimers();
+        stopAlienTalk();
         root.classList.remove("show", "typing", "ready");
         root.classList.add("hidden");
         tapEl.classList.add("hidden");
