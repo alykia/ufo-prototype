@@ -15,53 +15,53 @@ export const TRAINING_BEATS = [
         id: "welcome",
         mode: "pause",
         place: "card",
-        line: "Welcome aboard, pilot. Earth: mostly water, weirdly confident. We are here to take samples.",
+        line: "Welcome, pilot. We steal Earth's animals. They call it a farm. Tap to begin.",
     },
     {
         id: "move",
         mode: "gate",
         waitFor: "moved",
         anchor: "joyzone",
-        line: "Hold down here and drag. The saucer follows your finger. It is needy.",
+        line: "Hold here and drag. The saucer follows your finger. It is clingy.",
     },
     {
         id: "beam",
         mode: "gate",
         waitFor: "abducted",
         anchor: "chicken",
-        line: "Holding keeps the beam on. Park it over the feathery egg engine.",
+        line: "Keep holding. Hover over a chicken until it flies into the saucer.",
     },
     {
         id: "pickup",
         mode: "pause",
         place: "mid",
         anchor: "#pickups",
-        line: "Sample acquired. It is screaming. Screaming means fresh.",
+        line: "Got one. That card is your catch. Grab more chickens.",
     },
     {
         id: "goal",
         mode: "pause",
         anchor: "#goal-row",
-        line: "The Council wants five of those. We asked why. They cried.",
+        line: "This row wants five chickens. Fill it. The Council will not explain why.",
     },
     {
         id: "quota",
         mode: "pause",
         anchor: "#quota-chip",
-        line: "Fill this bar and we go home. Humans call this feeling 'Friday'.",
+        line: "Fill this green bar to finish the run. Then we leave. Humans call that Friday.",
     },
     {
         id: "tooHeavy",
         mode: "pause",
         showOn: "tooHeavy",
-        line: "Did not budge. Turns out cows are mostly cow. Upgrade the Core later.",
+        line: "Too heavy. Leave the cow. Upgrade Core later to lift bigger things.",
     },
     {
         id: "suspicion",
         mode: "pause",
         showOn: "suspicion",
         anchor: "#sus-row",
-        line: "The eye is filling. Humans are noticing. Stop grabbing. Look innocent. You are a saucer. Try.",
+        line: "That eye is filling. Stop beaming or humans call the stripe-cars.",
     },
     {
         // First success screen: point at the (i) next to a NEW specimen.
@@ -74,7 +74,7 @@ export const TRAINING_BEATS = [
         delayMs: 1600,
         anchor: "#research-list .research-info-btn",
         place: "low",
-        line: "New lifeform. Tap the little blue circle. We took notes. Some are true.",
+        line: "New find. Tap the blue (i) to read our notes. Some of them are true.",
     },
     {
         id: "management",
@@ -83,7 +83,7 @@ export const TRAINING_BEATS = [
         waitFor: "hotspot",
         anchor: "hotspots",
         place: "mgmt",
-        line: "Your saucer. Poke a glowing bit, give it Research, it grows. That is engineering.",
+        line: "Tap a label on the saucer. Then spend Research to upgrade that part.",
     },
     {
         id: "upgrade",
@@ -91,7 +91,7 @@ export const TRAINING_BEATS = [
         waitFor: "upgraded",
         anchor: "#upgrade-btn",
         place: "mgmt",
-        line: "Now feed it. Research goes in. Bigger bit comes out. Science.",
+        line: "Tap UPGRADE. Research goes in. That part gets stronger. We call it science.",
     },
     {
         id: "next",
@@ -99,15 +99,15 @@ export const TRAINING_BEATS = [
         waitFor: "next",
         anchor: "#next-expedition",
         place: "mgmt",
-        line: "Systems upgraded. Earth remains unaware. Let's go ruin that.",
+        line: "Good. Tap NEXT EXPEDITION to go back to Earth. They still have chickens.",
     },
 ];
 
 export const TRAINING_RESULT_LINE =
-    "Back aboard. Research banked. Spend it before the Council remembers we have it.";
+    "Research is banked. Spend it on the saucer before the Council notices.";
 
 export const FLOOR_LINE =
-    "The Council fronted us the difference. Do not mention it. Ever.";
+    "We topped up your Research so you can upgrade. Do not tell the Council.";
 
 export const SKIP_LABEL = "SKIP";
 
@@ -115,38 +115,38 @@ export const SKIP_LABEL = "SKIP";
 export const TIPS = {
     police: {
         mode: "pause",
-        line: "Stripe-cars. They flash lights to say hello. It is not hello. Avoid.",
+        line: "Police. Do not let them surround you. Fly away. The lights are not a greeting.",
     },
     bigfoot: {
         mode: "pause",
-        line: "Unknown lifeform. Large, hairy, unemployed. Grab it before it files a complaint.",
+        line: "Rare creature. Grab it now. Large, hairy, and writing a complaint.",
     },
     // detected / failed are spoken through the result screen's own Bridge
     // bubble the first time (see main.js resultQuip), not as a floating note.
     detected: {
         mode: "note",
-        line: "Surrounded. Humans love circles. Next time, fewer barns. Research still banked.",
+        line: "Caught. Nothing banked. Next time, beam less when the eye is full.",
     },
     failed: {
         mode: "note",
-        line: "Left before Quota. The Council calls this 'strategic'. They are being kind.",
+        line: "You left before the bar was full. Nothing banked. Hit RETRY.",
     },
     townUnlocked: {
         mode: "note",
-        line: "A Town. Denser humans, taller boxes, more opinions. Pick it from the menu.",
+        line: "Town unlocked. Pick TOWN on the menu. More humans. More snacks.",
     },
     zooUnlocked: {
         mode: "note",
-        line: "A Zoo. Earth pre-sorted its animals for us. Very considerate. Pick it from the menu.",
+        line: "Zoo unlocked. Pick ZOO on the menu. Earth already sorted the animals.",
     },
     scannerGlow: {
         mode: "note",
-        line: "Gold outline means expensive. Expensive means the Council smiles. Grab the gold.",
+        line: "Gold glow means high value. Grab those first. The Council likes expensive.",
     },
     menuReveal: {
         mode: "note",
         anchor: "#menu-tools",
         place: "low",
-        line: "New buttons. We found them in a drawer.",
+        line: "New buttons: Index, Shop, Settings. We found them in a drawer.",
     },
 };

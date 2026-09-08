@@ -92,7 +92,7 @@ export const BALANCE = {
     bigfootEventChance: 0.12,
     bigfootCheckInterval: 18,
     bigfootResearchValue: 90,
-    bigfootSuspicionValue: 20,
+    bigfootSuspicionValue: 24,
     bigfootDuration: 11,
     bigfootWeightTier: 3,
     scannerRareBonusLv4: 1.25,

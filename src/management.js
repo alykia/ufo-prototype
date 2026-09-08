@@ -40,7 +40,7 @@ export function bindManagement({ els, getPersist, onUpgrade, onNext, onOpen }) {
             const node = els.saucer.querySelector(`[data-system="${key}"]`);
             if (!node) continue;
             node.dataset.level = String(upgrades[key]);
-            node.querySelector(".hot-lv").textContent = String(upgrades[key]);
+            node.querySelector(".hot-lv").textContent = `Lv ${upgrades[key]}`;
             const extras = document.getElementById(GROWTH_IDS[key]);
             if (extras) extras.dataset.level = String(upgrades[key]);
         }

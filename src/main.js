@@ -687,9 +687,7 @@ function endExpedition(reason) {
     hideGoalBanner();
     beamExtend = 0;
     applyBeamVisual();
-    persist.bankedResearch += expedition.sessionResearch;
     persist.hasPlayed = true;
-    persist.bestSessionResearch = Math.max(persist.bestSessionResearch, expedition.sessionResearch);
     if (reason === "detected") {
         expedition.result = "detected";
         if (!training) persist.failedExpeditions += 1;
@@ -700,11 +698,18 @@ function endExpedition(reason) {
         expedition.result = "failed";
         if (!training) persist.failedExpeditions += 1;
     }
-    // Training floor: the guided Management visit must always afford one upgrade.
-    if (training && !persist.onboarding.floorUsed && persist.bankedResearch < BALANCE.trainingFloor) {
-        persist.bankedResearch = BALANCE.trainingFloor;
-        persist.onboarding.floorUsed = true;
-        trainingRun.floorLine = true;
+    if (expedition.result === "success") {
+        persist.bankedResearch += expedition.sessionResearch;
+        persist.bestSessionResearch = Math.max(persist.bestSessionResearch, expedition.sessionResearch);
+        if (training && !persist.onboarding.floorUsed && persist.bankedResearch < BALANCE.trainingFloor) {
+            persist.bankedResearch = BALANCE.trainingFloor;
+            persist.onboarding.floorUsed = true;
+            trainingRun.floorLine = true;
+        }
+    } else {
+        expedition.sessionResearch = 0;
+        expedition.goalReached = false;
+        expedition.goalBonus = 0;
     }
     save();
     gameState = STATE.EXPEDITION_RESULT;
@@ -775,8 +780,8 @@ function showResearchSuccess() {
     };
     const hints = {
         success: "Quota met. Session Research banked.",
-        failed: "Quota missed. Session Research still banked.",
-        detected: "Forced extract. Session Research still banked.",
+        failed: "Quota missed. Nothing banked.",
+        detected: "Caught. Nothing banked.",
     };
     els.researchSuccess.classList.toggle("detected", result === "detected");
     els.researchSuccess.classList.toggle("failed", result === "failed");
@@ -818,6 +823,10 @@ function showResearchSuccess() {
         els.researchQuip.textContent = line;
         speakAlien(line);
     }
+    const failed = result === "failed" || result === "detected";
+    const retryBtn = $("research-retry");
+    if (retryBtn) retryBtn.classList.toggle("hidden", !failed);
+    $("research-continue").classList.toggle("hidden", failed);
     els.researchInfo.classList.add("hidden");
     els.endScreen.classList.add("hidden");
     els.researchSuccess.classList.remove("hidden");
@@ -1560,6 +1569,10 @@ function bindShell() {
     els.settingsBtn.addEventListener("click", () => openSettings(gameState));
     $("open-management").addEventListener("click", () => openManagement());
     $("research-continue").addEventListener("click", () => openManagement());
+    $("research-retry").addEventListener("click", () => {
+        hideResearchSuccess();
+        startExpedition();
+    });
     $("research-info-close").addEventListener("click", () => els.researchInfo.classList.add("hidden"));
     els.researchList.addEventListener("click", (ev) => {
         const btn = ev.target.closest("[data-info]");

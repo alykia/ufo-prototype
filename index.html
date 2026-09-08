@@ -606,7 +606,7 @@
     #management {
       flex-direction: column;
       justify-content: flex-start;
-      background: #0b1020;
+      background: #0b1020 url("assets/ui/mgmt-space.png") center / cover no-repeat;
       padding: 10px 10px 12px;
       gap: 8px;
     }
@@ -686,7 +686,7 @@
     #end-screen p { margin: 6px 0; font-size: 13px; color: #d5dccc; }
     #end-stats { text-align: left; font-size: 12px; line-height: 1.55; white-space: pre-wrap; }
     .end-actions { display: grid; gap: 8px; margin-top: 12px; }
-    #open-management, #menu-play, #research-continue { background: #d6ff6a; color: #14200a; border: 0; }
+    #open-management, #menu-play, #research-continue, #research-retry { background: #d6ff6a; color: #14200a; border: 0; }
     #research-success {
       flex-direction: column;
       z-index: 9;
@@ -720,7 +720,7 @@
     #research-stats .ui-icon { width: 18px; height: 18px; }
     #research-police-stat { color: #ff8a8a; }
     #research-goal-stat:empty { display: none; }
-    #research-stats, #research-bridge, #research-continue, .research-panel h2, .research-panel .hint {
+    #research-stats, #research-bridge, #research-continue, #research-retry, .research-panel h2, .research-panel .hint {
       flex-shrink: 0;
     }
     #research-bridge, .bridge-row {
@@ -1014,7 +1014,7 @@
       cursor: pointer;
     }
     .research-info-btn .ui-icon { width: 18px; height: 18px; }
-    #research-continue {
+    #research-continue, #research-retry {
       width: 100%;
       min-height: 48px;
       border-radius: 8px;
@@ -1022,6 +1022,7 @@
       letter-spacing: 0.1em;
       cursor: pointer;
     }
+    #research-retry.hidden, #research-continue.hidden { display: none; }
     #research-info {
       position: absolute;
       inset: 0;
@@ -1427,110 +1428,121 @@
     #saucer {
       position: absolute;
       left: 50%;
-      top: 46%;
-      width: 78%;
-      aspect-ratio: 1.15 / 1;
+      top: 48%;
+      width: 96%;
+      aspect-ratio: 1.02 / 1;
       transform: translate(-50%, -50%);
     }
-    #saucer-body {
+    #saucer-art {
       position: absolute;
-      inset: 18% 4% 22%;
-      background: #8a94a0;
-      border-radius: 50%;
-      box-shadow: inset 0 10px 0 #b8c0c8, 0 10px 0 #5a626c;
+      left: 2%;
+      right: 2%;
+      top: 6%;
+      bottom: 2%;
+      pointer-events: none;
     }
-    #saucer-dome {
-      position: absolute;
-      left: 28%;
-      right: 28%;
-      top: 4%;
-      height: 28%;
-      background: #7ad8ff;
-      border-radius: 50% 50% 46% 46%;
-      box-shadow: inset 0 -8px 0 #4aa8c8;
-    }
-    #saucer-beam {
-      position: absolute;
-      left: 38%;
-      right: 38%;
-      bottom: 6%;
-      height: 18%;
-      background: rgba(157, 255, 106, 0.35);
-      border: 2px solid #9dff6a;
-      border-radius: 50%;
-    }
-    #saucer-engines {
-      position: absolute;
-      left: 6%;
-      right: 6%;
-      bottom: 28%;
-      height: 12%;
-    }
-    .engine {
-      position: absolute;
-      top: 0;
-      width: 14%;
+    #saucer-art img {
+      width: 100%;
       height: 100%;
-      background: #e07a3a;
-      border-radius: 4px;
+      object-fit: contain;
+      display: block;
     }
-    .engine.left { left: 0; }
-    .engine.right { right: 0; }
+    #saucer-leads {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      overflow: visible;
+    }
+    #saucer-leads line {
+      stroke: #d6ff6a;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      vector-effect: non-scaling-stroke;
+    }
+    .lead-node {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      margin: -4px 0 0 -4px;
+      border-radius: 50%;
+      background: #fff6b0;
+      border: 1.5px solid #d6ff6a;
+      box-shadow: 0 0 6px rgba(214, 255, 106, 0.55);
+      pointer-events: none;
+      z-index: 1;
+    }
     .hotspot {
       position: absolute;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
-      justify-content: center;
-      gap: 1px;
-      border: 1px solid #d6ff6a;
-      background: rgba(8, 12, 20, 0.62);
+      justify-content: flex-start;
+      gap: 6px;
+      border: 1.5px solid #d6ff6a;
+      background: rgba(8, 12, 20, 0.78);
       color: #eef3ea;
       border-radius: 10px;
-      padding: 4px 4px 3px;
+      padding: 6px 8px;
       font-size: 9px;
       font-weight: 800;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.06em;
       cursor: pointer;
-      text-align: center;
+      text-align: left;
       z-index: 2;
       min-height: 44px;
+      min-width: 108px;
+      box-shadow: 0 0 10px rgba(214, 255, 106, 0.22);
     }
-    .hotspot .hot-icon { width: 22px; height: 22px; }
-    .hotspot .hot-lv { display: block; color: #d6ff6a; font-size: 11px; }
-    .hotspot[data-system="scanner"] { left: 36%; top: 0; width: 28%; }
-    .hotspot[data-system="core"] { left: 36%; top: 40%; width: 28%; }
-    .hotspot[data-system="beam"] { left: 36%; bottom: 0; width: 28%; }
-    .hotspot[data-system="cloak"] { right: 0; top: 34%; width: 26%; }
-    .hotspot[data-system="propulsion"] { left: 0; top: 58%; width: 28%; }
+    .hotspot .hot-icon {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 26px;
+      padding: 3px;
+      border-radius: 50%;
+      background: #1a2130;
+      box-shadow: 0 0 0 1px #3a4458;
+    }
+    .hotspot .hot-meta { display: flex; flex-direction: column; line-height: 1.15; }
+    .hotspot .hot-name { color: #eef3ea; }
+    .hotspot .hot-lv { color: #d6ff6a; font-size: 10px; }
+    .hotspot[data-system="scanner"] { left: 50%; top: 0; transform: translateX(-50%); }
+    .hotspot[data-system="cloak"] { left: 0; top: 36%; }
+    .hotspot[data-system="propulsion"] { right: 0; top: 36%; }
+    .hotspot[data-system="beam"] { left: 0; bottom: 10%; }
+    .hotspot[data-system="core"] { left: 50%; bottom: 0; transform: translateX(-50%); }
     .growth {
       position: absolute;
       pointer-events: none;
+      border-radius: 50%;
     }
-    .growth[data-level="1"] { opacity: 0.15; }
-    .growth[data-level="2"] { opacity: 0.4; }
-    .growth[data-level="3"] { opacity: 0.65; }
-    .growth[data-level="4"] { opacity: 0.85; }
+    .growth[data-level="1"] { opacity: 0.18; }
+    .growth[data-level="2"] { opacity: 0.38; }
+    .growth[data-level="3"] { opacity: 0.58; }
+    .growth[data-level="4"] { opacity: 0.78; }
     .growth[data-level="5"] { opacity: 1; }
     #growth-core {
-      left: 42%; top: 38%; width: 16%; height: 16%;
-      border: 3px solid #ffe27a; border-radius: 50%;
+      left: 44.5%; top: 46%; width: 11%; height: 10%;
+      background: radial-gradient(circle, rgba(255, 90, 90, 0.85), transparent 72%);
     }
     #growth-beam {
-      left: 32%; bottom: 8%; width: 36%; height: 14%;
-      border: 2px dashed #9dff6a; border-radius: 50%;
+      left: 30%; bottom: 16%; width: 40%; height: 18%;
+      background: radial-gradient(ellipse, rgba(157, 255, 106, 0.42), transparent 72%);
     }
     #growth-cloak {
-      inset: 16% 2% 20%;
-      border: 2px solid #a8c4ff; border-radius: 50%;
+      inset: 26% 10% 30%;
+      border: 2px solid rgba(255, 214, 90, 0.55);
+      box-shadow: 0 0 14px rgba(255, 214, 90, 0.28);
     }
     #growth-scanner {
-      left: 44%; top: 2%; width: 12%; height: 10%;
-      background: #4aa8c8; border-radius: 50%;
+      left: 41%; top: 16%; width: 18%; height: 20%;
+      background: radial-gradient(circle, rgba(140, 230, 255, 0.7), transparent 70%);
     }
     #growth-prop {
-      left: 8%; right: 8%; bottom: 26%; height: 8%;
-      border-bottom: 4px solid #ff9a4a;
+      left: 39%; bottom: 18%; width: 22%; height: 16%;
+      background: radial-gradient(circle, rgba(180, 255, 120, 0.8), transparent 70%);
     }
     #upgrade-panel {
       width: 100%;
@@ -1815,6 +1827,7 @@
           </div>
         </div>
         <div id="research-list"></div>
+        <button id="research-retry" class="hidden" type="button">RETRY</button>
         <button id="research-continue" type="button">CONTINUE</button>
       </div>
       <div id="research-info" class="hidden">
@@ -1857,37 +1870,45 @@
       </div>
       <div id="mgmt-schematic">
         <div id="saucer">
-          <div id="saucer-dome"></div>
-          <div id="saucer-body"></div>
+          <div id="saucer-art" aria-hidden="true">
+            <img src="assets/ui/mgmt-ufo.png" alt="" />
+          </div>
+          <svg id="saucer-leads" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="50" y1="11" x2="50" y2="34"/>
+            <line x1="50" y1="89" x2="50" y2="48"/>
+            <line x1="28" y1="82" x2="50" y2="61"/>
+            <line x1="28" y1="43" x2="38" y2="48"/>
+            <line x1="72" y1="43" x2="62" y2="48"/>
+          </svg>
+          <span class="lead-node" style="left:50%;top:34%"></span>
+          <span class="lead-node" style="left:50%;top:48%"></span>
+          <span class="lead-node" style="left:50%;top:61%"></span>
+          <span class="lead-node" style="left:38%;top:48%"></span>
+          <span class="lead-node" style="left:62%;top:48%"></span>
           <div id="growth-cloak" class="growth" data-level="1"></div>
           <div id="growth-core" class="growth" data-level="1"></div>
           <div id="growth-beam" class="growth" data-level="1"></div>
           <div id="growth-scanner" class="growth" data-level="1"></div>
           <div id="growth-prop" class="growth" data-level="1"></div>
-          <div id="saucer-beam"></div>
-          <div id="saucer-engines">
-            <div class="engine left"></div>
-            <div class="engine right"></div>
-          </div>
           <button class="hotspot" type="button" data-system="scanner" aria-label="Scanner">
             <img class="hot-icon ui-icon" data-icon="scanner" alt="" />
-            <span class="hot-lv">1</span>
+            <span class="hot-meta"><span class="hot-name">SCANNER</span><span class="hot-lv">Lv 1</span></span>
           </button>
           <button class="hotspot" type="button" data-system="core" aria-label="Core">
             <img class="hot-icon ui-icon" data-icon="core" alt="" />
-            <span class="hot-lv">1</span>
+            <span class="hot-meta"><span class="hot-name">CORE</span><span class="hot-lv">Lv 1</span></span>
           </button>
           <button class="hotspot" type="button" data-system="beam" aria-label="Beam">
             <img class="hot-icon ui-icon" data-icon="beam" alt="" />
-            <span class="hot-lv">1</span>
+            <span class="hot-meta"><span class="hot-name">BEAM</span><span class="hot-lv">Lv 1</span></span>
           </button>
           <button class="hotspot" type="button" data-system="cloak" aria-label="Cloak">
             <img class="hot-icon ui-icon" data-icon="cloak" alt="" />
-            <span class="hot-lv">1</span>
+            <span class="hot-meta"><span class="hot-name">CLOAKING</span><span class="hot-lv">Lv 1</span></span>
           </button>
           <button class="hotspot" type="button" data-system="propulsion" aria-label="Engines">
             <img class="hot-icon ui-icon" data-icon="engines" alt="" />
-            <span class="hot-lv">1</span>
+            <span class="hot-meta"><span class="hot-name">PROPULSION</span><span class="hot-lv">Lv 1</span></span>
           </button>
         </div>
       </div>
