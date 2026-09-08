@@ -7,8 +7,9 @@
 //          "note"  -> non-blocking; fades on its own.
 // showOn:  the beat is not shown until this event has fired.
 // waitFor: (gate only) the event that dismisses the bubble.
+// delayMs: wait this long after showOn fires before the bubble appears.
 // place:   "high" (under the HUD, default), "mid" (below the Pickup cards),
-//          "mgmt" (under the Management status row), "card" (centred).
+//          "mgmt" (under the Management status row), "low" (bottom), "card" (centred).
 export const TRAINING_BEATS = [
     {
         id: "welcome",
@@ -61,6 +62,19 @@ export const TRAINING_BEATS = [
         showOn: "suspicion",
         anchor: "#sus-row",
         line: "The eye is filling. Humans are noticing. Stop grabbing. Look innocent. You are a saucer. Try.",
+    },
+    {
+        // First success screen: point at the (i) next to a NEW specimen.
+        // Arrives a beat after the panel so the result line is read first.
+        // CONTINUE also clears it (see onboarding.js "management").
+        id: "discovery",
+        mode: "gate",
+        showOn: "resultShown",
+        waitFor: "infoOpened",
+        delayMs: 1600,
+        anchor: "#research-list .research-info-btn",
+        place: "low",
+        line: "New lifeform. Tap the little blue circle. We took notes. Some are true.",
     },
     {
         id: "management",

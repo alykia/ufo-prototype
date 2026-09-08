@@ -38,6 +38,7 @@ import { bridgeQuip } from "./bridgeQuips.js";
 import { FLOOR_LINE, TRAINING_RESULT_LINE } from "./bridgeLines.js";
 import { ALIEN_SVG, bindOnboarding } from "./onboarding.js";
 import { hydrateIcons, uiIcon } from "./uiIcons.js";
+import { bindMenuMusicUnlock, setMenuMusic } from "./audio.js";
 
 const STATE = {
     MENU: "MENU",
@@ -242,6 +243,7 @@ const onboarding = bindOnboarding({
 if (els.endAlien) els.endAlien.innerHTML = ALIEN_SVG;
 
 bindShell();
+bindMenuMusicUnlock();
 resize();
 showMenu();
 requestAnimationFrame(tick);
@@ -584,6 +586,7 @@ function showMenu() {
     els.menuRestart.classList.toggle("hidden", fresh || !persist.hasPlayed);
     paintMapRow();
     syncHud();
+    syncMenuMusic();
     if (!fresh && persist.hasPlayed) onboarding.tip("menuReveal");
 }
 
@@ -653,6 +656,7 @@ function startExpedition() {
     // The welcome beat pauses the world; startTraining ran before the state
     // flipped to EXPEDITION, so apply the hold now that the sim is live.
     if (training && onboarding.hasBubble()) holdWorld(true);
+    syncMenuMusic({ restart: true });
 }
 
 function seedField() {
@@ -701,6 +705,7 @@ function endExpedition(reason) {
     endJoystick();
     onboarding.event("expeditionEnd");
     showResearchSuccess();
+    syncMenuMusic();
 }
 
 function resultQuip() {
@@ -727,6 +732,7 @@ function openManagement() {
     hideResearchSuccess();
     management.show();
     onboarding.event("management");
+    syncMenuMusic();
 }
 
 function hideResearchSuccess() {
@@ -800,6 +806,8 @@ function showResearchSuccess() {
     els.researchInfo.classList.add("hidden");
     els.endScreen.classList.add("hidden");
     els.researchSuccess.classList.remove("hidden");
+    // Training: point the Bridge at the (i) beside a Discovery.
+    if (rows.some((row) => row.isNew)) onboarding.event("resultShown");
 }
 
 function startNextExpedition() {
@@ -1528,6 +1536,7 @@ function bindShell() {
         const btn = ev.target.closest("[data-info]");
         if (!btn) return;
         openResearchInfo(TARGET_BY_ID[btn.dataset.info]);
+        onboarding.event("infoOpened");
     });
     $("confirm-cancel").addEventListener("click", () => {
         els.confirm.classList.add("hidden");
@@ -1588,6 +1597,7 @@ function openSettings(from) {
         const on = persist.settings.soundOn;
         $("sound-toggle").innerHTML = uiIcon(on ? "sound" : "soundOff");
         $("sound-toggle").setAttribute("aria-label", on ? "Sound on" : "Sound off");
+        syncMenuMusic();
     });
     $("delete-progress").addEventListener("click", () => askWipeConfirm());
     $("main-menu").addEventListener("click", () => {
@@ -1595,6 +1605,7 @@ function openSettings(from) {
         showMenu();
     });
     $("close-settings").addEventListener("click", closeSettings);
+    syncMenuMusic();
 }
 
 function closeSettings() {
@@ -1603,6 +1614,18 @@ function closeSettings() {
     gameState = settingsReturn === STATE.SETTINGS ? STATE.MENU : settingsReturn;
     if (gameState === STATE.MENU) showMenu();
     syncHud();
+    syncMenuMusic();
+}
+
+function menuMusicWanted() {
+    if (!persist.settings.soundOn) return false;
+    if (gameState === STATE.MENU) return true;
+    if (gameState === STATE.SETTINGS && settingsReturn === STATE.MENU) return true;
+    return false;
+}
+
+function syncMenuMusic(opts) {
+    setMenuMusic(menuMusicWanted(), opts);
 }
 
 function applyDebugJoyKeys(ev, down) {

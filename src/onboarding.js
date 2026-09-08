@@ -2,12 +2,8 @@ import { SKIP_LABEL, TIPS, TRAINING_BEATS } from "./bridgeLines.js";
 
 // Shared alien avatar. Also used on the result screens.
 export const ALIEN_SVG = `
-<svg viewBox="0 0 72 80" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="8 11 56 68" xmlns="http://www.w3.org/2000/svg">
   <g class="alien-body" fill="#7adf4a" stroke="#111" stroke-width="0.7" stroke-linejoin="round">
-    <path d="M21 18 L12 8" fill="none" stroke-linecap="round"/>
-    <circle cx="9" cy="6" r="5.4"/>
-    <path d="M51 18 L60 8" fill="none" stroke-linecap="round"/>
-    <circle cx="63" cy="6" r="5.4"/>
     <path d="M36 13 C18 13 10 24 11 41 C12 58 24 73 36 77 C48 73 60 58 61 41 C62 24 54 13 36 13 Z"/>
   </g>
   <ellipse cx="24" cy="42" rx="8.6" ry="11.2" transform="rotate(-32 24 42)" fill="#111"/>
@@ -48,6 +44,7 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
     let autoTimer = 0;
     let ringRaf = 0;
     let moveHeld = 0;
+    let delayTimer = 0;
 
     function onb() {
         return getPersist().onboarding;
@@ -107,6 +104,20 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
         } else if (current.mode === "note") {
             autoTimer = setTimeout(dismiss, NOTE_AUTO_MS);
         }
+    }
+
+    function cancelDelayed() {
+        clearTimeout(delayTimer);
+        delayTimer = 0;
+    }
+
+    // Show a beat after its `delayMs`, unless the flow moved on meanwhile.
+    function showLater(beat) {
+        cancelDelayed();
+        delayTimer = setTimeout(() => {
+            delayTimer = 0;
+            if (training && !silenced && !current && TRAINING_BEATS[beatIndex] === beat) show(beat);
+        }, beat.delayMs);
     }
 
     function hideBubble() {
@@ -197,6 +208,7 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
         pending = null;
         fired = new Set();
         moveHeld = 0;
+        cancelDelayed();
         hideBubble();
         setHold(false);
         advance();
@@ -209,6 +221,7 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
         training = false;
         silenced = false;
         pending = null;
+        cancelDelayed();
         hideBubble();
         setHold(false);
     }
@@ -218,6 +231,7 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
         silenced = false;
         pending = null;
         current = null;
+        cancelDelayed();
         hideBubble();
         setHold(false);
     }
@@ -229,13 +243,19 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
         save();
         current = null;
         pending = null;
+        cancelDelayed();
         hideBubble();
         setHold(false);
     }
 
+    function beatIndexOf(id) {
+        return TRAINING_BEATS.findIndex((b) => b.id === id);
+    }
+
     function skipTo(id) {
-        const idx = TRAINING_BEATS.findIndex((b) => b.id === id);
+        const idx = beatIndexOf(id);
         if (idx < 0) return;
+        cancelDelayed();
         if (current && !current.isTip) {
             const wasPause = current.mode === "pause";
             current = null;
@@ -254,8 +274,17 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
             return;
         }
         if (name === "expeditionEnd") {
-            if (beatIndex < TRAINING_BEATS.findIndex((b) => b.id === "management")) skipTo("management");
+            // Jump to the result-screen beat; it only shows if the success
+            // screen reports a Discovery (resultShown), otherwise CONTINUE
+            // carries us straight to the Management beat below.
+            if (beatIndex < beatIndexOf("discovery")) skipTo("discovery");
             return;
+        }
+        if (name === "management") {
+            if (beatIndex < beatIndexOf("management")) {
+                skipTo("management");
+                return;
+            }
         }
         if (current && !current.isTip && current.mode === "gate" && current.waitFor === name) {
             dismiss();
@@ -264,7 +293,8 @@ export function bindOnboarding({ stage, root, ring, dim, getPersist, save, holdW
         if (pending && pending.showOn === name && !current) {
             const beat = pending;
             pending = null;
-            show(beat);
+            if (beat.delayMs) showLater(beat);
+            else show(beat);
         }
     }
 

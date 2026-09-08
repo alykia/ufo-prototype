@@ -907,7 +907,8 @@
     }
     #bridge-bubble[data-place="card"] #bridge-skip { left: 50%; transform: translateX(-50%); }
 
-    #stage.settings-open #bridge-bubble, #stage.settings-open #onboard-ring, #stage.settings-open #onboard-dim { visibility: hidden; }
+    #stage.settings-open #bridge-bubble, #stage.settings-open #onboard-ring, #stage.settings-open #onboard-dim,
+    #stage:has(#confirm:not(.hidden)) #bridge-bubble, #stage:has(#confirm:not(.hidden)) #onboard-ring { visibility: hidden; }
     #next-expedition:disabled { opacity: 0.45; cursor: default; }
 
     /* Fresh save: progressive disclosure on the title */
@@ -1662,7 +1663,16 @@
     <div id="onboard-dim" class="hidden"></div>
     <div id="onboard-ring" class="hidden"></div>
     <div id="bridge-bubble" class="hidden" data-place="high">
-      <div class="bb-alien" aria-hidden="true"></div>
+      <div class="bb-alien" aria-hidden="true">
+        <svg viewBox="8 11 56 68" xmlns="http://www.w3.org/2000/svg">
+          <g class="alien-body" fill="#7adf4a" stroke="#111" stroke-width="0.7" stroke-linejoin="round">
+            <path d="M36 13 C18 13 10 24 11 41 C12 58 24 73 36 77 C48 73 60 58 61 41 C62 24 54 13 36 13 Z"/>
+          </g>
+          <ellipse cx="24" cy="42" rx="8.6" ry="11.2" transform="rotate(-32 24 42)" fill="#111"/>
+          <ellipse cx="48" cy="42" rx="8.6" ry="11.2" transform="rotate(32 48 42)" fill="#111"/>
+          <ellipse class="alien-mouth" cx="36" cy="64" rx="6.2" ry="4.4" fill="#111"/>
+        </svg>
+      </div>
       <div class="bb-bubble">
         <div class="bb-kicker">BRIDGE</div>
         <p id="bridge-text"></p>
@@ -1754,12 +1764,8 @@
             <span class="research-bubble-tail" aria-hidden="true"></span>
           </div>
           <div id="bridge-alien" aria-hidden="true">
-            <svg viewBox="0 0 72 80" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="8 11 56 68" xmlns="http://www.w3.org/2000/svg">
               <g class="alien-body" fill="#7adf4a" stroke="#111" stroke-width="0.7" stroke-linejoin="round">
-                <path d="M21 18 L12 8" fill="none" stroke-linecap="round"/>
-                <circle cx="9" cy="6" r="5.4"/>
-                <path d="M51 18 L60 8" fill="none" stroke-linecap="round"/>
-                <circle cx="63" cy="6" r="5.4"/>
                 <path d="M36 13 C18 13 10 24 11 41 C12 58 24 73 36 77 C48 73 60 58 61 41 C62 24 54 13 36 13 Z"/>
               </g>
               <ellipse cx="24" cy="42" rx="8.6" ry="11.2" transform="rotate(-32 24 42)" fill="#111"/>
