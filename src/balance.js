@@ -134,6 +134,8 @@ export const BALANCE = {
 
     maxSystemLevel: 5,
     hardSystemCap: 20,
+    townUpgradeCostMul: 0.9,
+    zooUpgradeGrowth: 1.3,
 };
 
 export function calculateExpeditionQuota(coreLevel, successfulExpeditions = 0, quotaBonus = 0) {
@@ -205,5 +207,9 @@ export function upgradeCost(system, currentLevel, cap = BALANCE.maxSystemLevel) 
     if (!costs) return null;
     if (currentLevel < 5) return costs[currentLevel - 1];
     const base = costs[costs.length - 1];
-    return Math.round(base * (1.55 ** (currentLevel - 4)));
+    if (currentLevel < 12) {
+        return Math.round(base * (1.55 ** (currentLevel - 4)) * BALANCE.townUpgradeCostMul);
+    }
+    const townGate = base * (1.55 ** 7) * BALANCE.townUpgradeCostMul;
+    return Math.round(townGate * (BALANCE.zooUpgradeGrowth ** (currentLevel - 11)));
 }
