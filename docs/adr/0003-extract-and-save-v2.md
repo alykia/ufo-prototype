@@ -23,3 +23,7 @@ Old Power/Beam/stage progress is discarded on purpose. Players keep their sound 
 ## Amended 2026-09-07
 
 Quota completion now ends the Expedition immediately as a success and banks Session Research. Extract remains the player-chosen early end (quota missed = failed). Suspicion 100% remains the forced end. The save key stays `ufo-greybox-save-v2`; Onboarding state is added to it with defaults, not a new key.
+
+## Amended 2026-09-08
+
+Correction to the Decision above: Session Research is banked **only** when the Expedition succeeds (Quota met). Failed (early Extract) and detected (Suspicion 100%) Expeditions bank nothing; this is what `endExpedition` has done since iteration 002 and the glossary now says the same. Meteorite (ADR 0004) is the exception: it is paid the moment a goal completes and survives failure. Save v2 also gains `meteorite` and `cosmetics` with defaults, same pattern as `onboarding`.

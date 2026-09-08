@@ -98,9 +98,12 @@ export const BALANCE = {
     scannerRareBonusLv4: 1.25,
     scannerRareBonusLv5: 1.5,
     highValueThreshold: 25,
-    goalBonusQuotaFrac: 0.2,
-    goalBonusMin: 20,
-    goalBonusStep: 5,
+    // Meteorite paid when an Expedition Goal completes, per Site.
+    meteoritePerGoal: { farm: 10, town: 15, zoo: 25 },
+    acquiredDuration: 1.8,
+    goalRebannerDuration: 2.5,
+    // System levels at which the UFO gains a visible Refit (Site caps).
+    refitLevels: [5, 12, 20],
 
     // Training Expedition (Onboarding)
     trainingQuota: 60,
@@ -145,9 +148,12 @@ export function calculateExpeditionQuota(coreLevel, successfulExpeditions = 0, q
         + Math.max(0, quotaBonus);
 }
 
-export function goalBonusFor(quota) {
-    const raw = Math.max(BALANCE.goalBonusMin, quota * BALANCE.goalBonusQuotaFrac);
-    return Math.round(raw / BALANCE.goalBonusStep) * BALANCE.goalBonusStep;
+export function meteoriteFor(mapId) {
+    return BALANCE.meteoritePerGoal[mapId] ?? BALANCE.meteoritePerGoal.farm;
+}
+
+export function isRefitLevel(level) {
+    return BALANCE.refitLevels.includes(level);
 }
 
 export function escalationBand(sessionResearch, quota) {

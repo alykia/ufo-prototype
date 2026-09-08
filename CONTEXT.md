@@ -1,6 +1,6 @@
 # UFO Abduction Greybox
 
-One-screen portrait UFO research-management prototype: the player steers a UFO with a Joystick to vacuum Specimens during an Expedition, banks Session Research, and spends Banked Research on five physical UFO systems.
+One-screen portrait UFO research-management prototype: the player steers a UFO with a Joystick to vacuum Specimens during an Expedition, banks Session Research, spends Banked Research on five physical UFO systems, and spends Meteorite from Expedition Goals on Cosmetics in the Shop.
 
 ## Language
 
@@ -17,19 +17,27 @@ Research earned during the current Expedition. It is never spendable until it is
 _Avoid_: Research as if it were already spendable, score, XP
 
 **Banked Research**:
-Spendable Research stored after an Expedition ends. UFO Management spends only this.
-_Avoid_: wallet, money, credits, mixing it with Session Research
+Spendable Research stored after a successful Expedition. UFO Management spends only this.
+_Avoid_: wallet, money, credits, mixing it with Session Research or Meteorite
+
+**Meteorite**:
+The second currency. Expedition Goals pay a flat amount per Site (Farm 10, Town 15, Zoo 25) the moment they complete; it is kept even when the Expedition fails, and only the Shop spends it. It never affects Quota, Research, or any system level.
+_Avoid_: gems, premium currency, crystals, mixing it with Research, Meteorites (always singular as a currency)
 
 **Quota**:
 The Expedition success bar. Filling it ends the Expedition as a success and banks Session Research.
 _Avoid_: stage, timer, a bar the run continues past
 
 **Expedition Goal**:
-An optional request for a set number of specific Specimens, announced at the start of an Expedition. Completing it pays a Goal Bonus of Session Research. Missing it costs nothing.
+A request for a set number of specific Specimens, announced at the start of an Expedition. Completing it pays a Goal Bonus of Meteorite (never Research), shows TARGETS ACQUIRED!, and a new Expedition Goal rolls at once for the rest of the run. Missing it costs nothing. The Training Expedition's goal pays but does not re-roll.
 _Avoid_: Session Goal, "THIS SESSION", quest, mission, objective, shopping list (except in Bridge dialogue)
 
+**Goal Bonus**:
+The Meteorite paid when an Expedition Goal completes. It is not Research.
+_Avoid_: trophy, bonus Research, reward
+
 **Extract**:
-The player-chosen early Expedition end, available after a short lockout. Session Research is always banked; leaving before Quota is a failed Expedition.
+The player-chosen early Expedition end, available after a short lockout. Session Research is banked only when Quota is met; leaving before Quota is a failed Expedition and the Session Research is lost. Meteorite earned during the run is always kept.
 _Avoid_: Drop, quit, retreat, time-out
 
 **Site**:
@@ -101,8 +109,24 @@ The upgrade that raises UFO max speed and acceleration.
 _Avoid_: engine as a separate system name, dash, boost
 
 **UFO Management**:
-The post-Expedition schematic where Banked Research is spent on the five systems.
-_Avoid_: shop, Breakthrough, card choice, skill tree
+The post-Expedition schematic where Banked Research is spent on the five systems. Cosmetics never appear on it.
+_Avoid_: Shop (that is the title-screen store), Breakthrough, card choice, skill tree
+
+**Refit**:
+The visible change the 3D UFO gains when a system reaches a Site cap (level 5, 12, 20). Refits stack, are purely visual, and cover Graviton Core, Cloaking, Scanner Array and Propulsion; the Tractor Beam already grows on its own. Management shows a REFIT toast and the first one fires a Tip.
+_Avoid_: skin, evolution, upgrade tier, milestone (in copy)
+
+**Shop**:
+The title-screen store where Meteorite buys Cosmetics. It shows a live rotating preview of the player's UFO with everything equipped, and is hidden until Onboarding is done.
+_Avoid_: store, market, inventory, UFO Management
+
+**Cosmetic**:
+A Shop item that changes only how the UFO looks: a Hull (colours and rivets), a Beam Tint (beam colour, including Rainbow) or an Accessory (a hat, dice, sticker, antenna). One Cosmetic per slot is Equipped; the free defaults are always owned. Cosmetics have no gameplay effect.
+_Avoid_: skin, perk, item that changes stats, loot
+
+**Equip**:
+Selecting an owned Cosmetic for its slot from the Shop. Buying equips at once; the UFO in the next Expedition wears it. There is no separate inventory.
+_Avoid_: install, wear (outside Bridge dialogue), activate
 
 **Suspicion**:
 A 0–100% detection meter. Successful Abductions, Too Heavy, and Police contact raise it; waiting with no successful Abduction lowers it. High Suspicion summons Police. 100% force-ends the Expedition as UFO DETECTED.

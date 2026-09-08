@@ -30,6 +30,7 @@ export const ICON = {
     stats: "stats",
     star: "star",
     police: "police",
+    meteorite: "meteorite",
 };
 
 const SPECIMEN_ICON = {

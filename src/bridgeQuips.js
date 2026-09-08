@@ -83,16 +83,18 @@ function situational(ex, mapId) {
     const over = Math.max(0, (ex.sessionResearch || 0) - (ex.quota || 0));
     const sit = [...policeLines(calls), ...newsLines(news), ...mapLines(mapId)];
 
+    const goalsDone = (ex.goalsCompleted || 0) > 0;
     if (ex.result === "success") {
-        sit.push(ex.goalReached
+        sit.push(goalsDone
             ? "Shopping list complete. The Council will pretend they were not hungry."
             : "Quota first, shopping list later. Priorities: shiny rocks, then chickens.");
+        if ((ex.goalsCompleted || 0) >= 2) sit.push("Two shopping lists cleared. Meteorite acquired. We are rich in rocks.");
         if (ex.maxSuspicion >= 90) sit.push("Suspicion nearly cooked us. Next time: quieter chickens.");
         else if (ex.maxSuspicion < 40) sit.push("Suspicion stayed polite. Earth still thinks we are weather.");
         if (over >= 40) sit.push(`Overshot Quota by ${over}. Greed is a valid research method.`);
     } else if (ex.result === "detected") {
         if ((ex.abducted || 0) === 0) sit.push("Caught with nothing. Humans call this 'loitering'.");
-        if (ex.goalReached) sit.push("Shopping list done, then arrested. Balanced.");
+        if (goalsDone) sit.push("Shopping list done, then arrested. Balanced. We kept the Meteorite.");
     } else {
         const pct = ex.quota ? Math.round(((ex.sessionResearch || 0) / ex.quota) * 100) : 0;
         if (pct >= 75) sit.push(`${pct} percent of Quota. So close the Council could smell it.`);

@@ -473,45 +473,574 @@ export function createPoliceCar() {
     return g;
 }
 
+// ---- UFO --------------------------------------------------------------------
+// The UFO owns its materials (not the shared cache) so Cosmetics can recolour
+// it without touching any Specimen. Anchors are empty groups that Cosmetics
+// and Refits attach to, so every hull keeps the same attachment points.
+//   domeTop   : hats and other accessories on the canopy
+//   underHull : things hanging below the saucer (Core refits, fuzzy dice)
+//   rimEdge   : the hull edge (Cloak strips, sticker)
+//   domeSide  : the canopy flank (Scanner dish)
+//   engines   : the two stock engine blocks
+
+const UFO_DIMS = {
+    hullTop: 0.52,
+    hullBottom: 0.74,
+    hullH: 0.16,
+    domeR: 0.28,
+    domeY: 0.09,
+    rimR: 0.58,
+    engineX: 0.52,
+    engineY: -0.02,
+};
+
+function ufoMat(color, extra = {}) {
+    return new THREE.MeshLambertMaterial({ color, ...extra });
+}
+
 export function createUfo() {
     const g = new THREE.Group();
-    const hull = cyl(0.52, 0.74, 0.16, 0xc8d0d8, 0, 20);
-    const dome = new THREE.Mesh(
-        geo("dome", () => new THREE.SphereGeometry(0.28, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)),
-        mat("dome", 0x7ad8ff),
+    const D = UFO_DIMS;
+    const mats = {
+        hull: ufoMat(0xc8d0d8),
+        dome: ufoMat(0x7ad8ff, { transparent: true, opacity: 1 }),
+        rim: ufoMat(0x8a94a0),
+        engine: ufoMat(0xe07a3a),
+        emitter: ufoMat(0x9dff6a, { emissive: 0x9dff6a, emissiveIntensity: 0.45 }),
+        beam: new THREE.MeshBasicMaterial({ color: 0x9dff6a, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }),
+        ring: new THREE.MeshBasicMaterial({ color: 0x9dff6a, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }),
+    };
+
+    const hull = new THREE.Mesh(
+        geo(`cyl:${D.hullTop}:${D.hullBottom}:${D.hullH}:20`, () => new THREE.CylinderGeometry(D.hullTop, D.hullBottom, D.hullH, 20)),
+        mats.hull,
     );
-    dome.position.y = 0.09;
+    const dome = new THREE.Mesh(
+        geo("dome", () => new THREE.SphereGeometry(D.domeR, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)),
+        mats.dome,
+    );
+    dome.position.y = D.domeY;
     const rim = new THREE.Mesh(
-        geo("rim", () => new THREE.TorusGeometry(0.58, 0.04, 8, 20)),
-        mat("rim", 0x8a94a0),
+        geo("rim", () => new THREE.TorusGeometry(D.rimR, 0.04, 8, 20)),
+        mats.rim,
     );
     rim.rotation.x = Math.PI / 2;
-    const emitter = cyl(0.1, 0.16, 0.08, 0x9dff6a, -0.1, 10);
-    const engL = box(0.12, 0.08, 0.1, 0xe07a3a, -0.02);
-    engL.position.x = -0.52;
-    const engR = box(0.12, 0.08, 0.1, 0xe07a3a, -0.02);
-    engR.position.x = 0.52;
+    const emitter = new THREE.Mesh(
+        geo("cyl:0.1:0.16:0.08:10", () => new THREE.CylinderGeometry(0.1, 0.16, 0.08, 10)),
+        mats.emitter,
+    );
+    emitter.position.y = -0.1;
+    const engineGeo = geo("box:0.12:0.08:0.1", () => new THREE.BoxGeometry(0.12, 0.08, 0.1));
+    const engL = new THREE.Mesh(engineGeo, mats.engine);
+    engL.position.set(-D.engineX, D.engineY, 0);
+    const engR = new THREE.Mesh(engineGeo, mats.engine);
+    engR.position.set(D.engineX, D.engineY, 0);
 
     const beamH = BALANCE.ufoHoverY;
     const beam = new THREE.Mesh(
         geo("beam", () => new THREE.CylinderGeometry(0.12, 1, 1, 20, 1, true)),
-        basic("beam", 0x9dff6a, { transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }),
+        mats.beam,
     );
     beam.position.y = -beamH / 2;
     beam.scale.set(1, beamH, 1);
 
     const ring = new THREE.Mesh(
         geo("ring", () => new THREE.RingGeometry(0.82, 1, 28)),
-        basic("ring", 0x9dff6a, { transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }),
+        mats.ring,
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = -beamH + 0.03;
 
-    g.add(hull, dome, rim, emitter, engL, engR, beam, ring);
+    const anchors = {
+        domeTop: new THREE.Group(),
+        underHull: new THREE.Group(),
+        rimEdge: new THREE.Group(),
+        domeSide: new THREE.Group(),
+    };
+    anchors.domeTop.position.y = D.domeY + D.domeR;
+    anchors.underHull.position.y = -D.hullH / 2;
+    anchors.domeSide.position.set(0.2, D.domeY + 0.12, 0.16);
+
+    const cosmetics = new THREE.Group();
+    const refits = new THREE.Group();
+
+    g.add(hull, dome, rim, emitter, engL, engR, beam, ring, cosmetics, refits, ...Object.values(anchors));
     g.userData.beam = beam;
     g.userData.ring = ring;
+    g.userData.parts = { hull, dome, rim, emitter, engines: [engL, engR] };
+    g.userData.mats = mats;
+    g.userData.anchors = anchors;
+    g.userData.cosmetics = cosmetics;
+    g.userData.refits = refits;
+    g.userData.anim = emptyUfoAnim();
+    g.userData.cloakBreath = false;
+    g.userData.rainbow = false;
+    g.userData.clock = 0;
     g.position.set(0, BALANCE.ufoHoverY, 0);
     return g;
+}
+
+function emptyUfoAnim() {
+    return { spinners: [], blinkers: [], swingers: [], orbiters: [], pulsers: [], sweeps: [], thrusters: [], glide: [] };
+}
+
+function clearGroup(group) {
+    while (group.children.length) group.remove(group.children[0]);
+}
+
+function glow(color, opacity = 1, extra = {}) {
+    return new THREE.MeshLambertMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.9,
+        transparent: opacity < 1,
+        opacity,
+        ...extra,
+    });
+}
+
+// ---- Cosmetics ---------------------------------------------------------------
+
+function applyHullLook(ufo, look) {
+    const { mats, cosmetics } = ufo.userData;
+    mats.hull.color.setHex(look.hull);
+    mats.rim.color.setHex(look.rim);
+    mats.dome.color.setHex(look.dome);
+    mats.engine.color.setHex(look.engine);
+    if (look.rivets) {
+        const D = UFO_DIMS;
+        const rivetGeo = geo("sph:0.025:6:4", () => new THREE.SphereGeometry(0.025, 6, 4));
+        const rivetMat = mat("rivet", look.rim);
+        for (let i = 0; i < 12; i++) {
+            const a = (i / 12) * Math.PI * 2;
+            const r = new THREE.Mesh(rivetGeo, rivetMat);
+            r.position.set(Math.cos(a) * (D.hullTop + 0.04), D.hullH / 2 + 0.005, Math.sin(a) * (D.hullTop + 0.04));
+            r.userData.cosmetic = "hull";
+            cosmetics.add(r);
+        }
+    }
+}
+
+function applyBeamTint(ufo, look) {
+    const { mats } = ufo.userData;
+    mats.beam.color.setHex(look.color);
+    mats.ring.color.setHex(look.color);
+    mats.emitter.color.setHex(look.color);
+    mats.emitter.emissive.setHex(look.color);
+    ufo.userData.rainbow = Boolean(look.rainbow);
+}
+
+const ACCESSORY_BUILDERS = {
+    none: () => null,
+    partyHat: (anim) => {
+        const g = new THREE.Group();
+        const cone = new THREE.Mesh(geo("cone:0.12:0.26", () => new THREE.ConeGeometry(0.12, 0.26, 12)), mat("m", 0xff6a8a));
+        cone.position.y = 0.11;
+        const stripe = new THREE.Mesh(geo("torus:0.075:0.012", () => new THREE.TorusGeometry(0.075, 0.012, 6, 14)), mat("m", 0xfff0a0));
+        stripe.rotation.x = Math.PI / 2;
+        stripe.position.y = 0.09;
+        const pom = new THREE.Mesh(geo("sph:0.04:8:6", () => new THREE.SphereGeometry(0.04, 8, 6)), mat("m", 0xffffff));
+        pom.position.y = 0.25;
+        g.add(cone, stripe, pom);
+        return g;
+    },
+    propeller: (anim) => {
+        const g = new THREE.Group();
+        const cap = new THREE.Mesh(
+            geo("halfsph:0.14", () => new THREE.SphereGeometry(0.14, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)),
+            mat("m", 0x4aa0ff),
+        );
+        cap.position.y = -0.05;
+        const stick = new THREE.Mesh(geo("cyl:0.012:0.012:0.1:6", () => new THREE.CylinderGeometry(0.012, 0.012, 0.1, 6)), mat("m", 0xdde4ea));
+        stick.position.y = 0.12;
+        const blades = new THREE.Group();
+        const bladeGeo = geo("box:0.3:0.01:0.04", () => new THREE.BoxGeometry(0.3, 0.01, 0.04));
+        const b1 = new THREE.Mesh(bladeGeo, mat("m", 0xffd35a));
+        const b2 = new THREE.Mesh(bladeGeo, mat("m", 0xff6a5a));
+        b2.rotation.y = Math.PI / 2;
+        blades.add(b1, b2);
+        blades.position.y = 0.17;
+        anim.spinners.push({ node: blades, speed: 9 });
+        g.add(cap, stick, blades);
+        return g;
+    },
+    cowboy: () => {
+        const g = new THREE.Group();
+        const brim = new THREE.Mesh(geo("cyl:0.34:0.34:0.02:18", () => new THREE.CylinderGeometry(0.34, 0.34, 0.02, 18)), mat("m", 0x8a5a2a));
+        brim.position.y = -0.03;
+        const crown = new THREE.Mesh(geo("cyl:0.15:0.17:0.16:14", () => new THREE.CylinderGeometry(0.15, 0.17, 0.16, 14)), mat("m", 0x9a6a34));
+        crown.position.y = 0.06;
+        const band = new THREE.Mesh(geo("torus:0.165:0.012", () => new THREE.TorusGeometry(0.165, 0.012, 6, 16)), mat("m", 0x3a2410));
+        band.rotation.x = Math.PI / 2;
+        band.position.y = 0.0;
+        g.add(brim, crown, band);
+        return g;
+    },
+    antenna: (anim) => {
+        const g = new THREE.Group();
+        const rod = new THREE.Mesh(geo("cyl:0.012:0.016:0.3:6", () => new THREE.CylinderGeometry(0.012, 0.016, 0.3, 6)), mat("m", 0xdde4ea));
+        rod.position.y = 0.15;
+        const bulbMat = glow(0xff4a4a);
+        const bulb = new THREE.Mesh(geo("sph:0.05:8:6", () => new THREE.SphereGeometry(0.05, 8, 6)), bulbMat);
+        bulb.position.y = 0.32;
+        anim.blinkers.push({ mat: bulbMat, period: 0.9, phase: 0 });
+        g.add(rod, bulb);
+        return g;
+    },
+    catEars: () => {
+        const g = new THREE.Group();
+        const earGeo = geo("cone:0.09:0.17", () => new THREE.ConeGeometry(0.09, 0.17, 8));
+        const innerGeo = geo("cone:0.05:0.11", () => new THREE.ConeGeometry(0.05, 0.11, 8));
+        for (const side of [-1, 1]) {
+            const ear = new THREE.Mesh(earGeo, mat("m", 0xf0a0c0));
+            ear.position.set(side * 0.17, -0.02, 0);
+            ear.rotation.z = -side * 0.35;
+            const inner = new THREE.Mesh(innerGeo, mat("m", 0xff6a9a));
+            inner.position.set(side * 0.17, -0.02, 0.02);
+            inner.rotation.z = -side * 0.35;
+            g.add(ear, inner);
+        }
+        return g;
+    },
+    fuzzyDice: (anim) => {
+        const g = new THREE.Group();
+        const dieGeo = geo("box:0.1:0.1:0.1", () => new THREE.BoxGeometry(0.1, 0.1, 0.1));
+        const stringGeo = geo("cyl:0.006:0.006:0.16:4", () => new THREE.CylinderGeometry(0.006, 0.006, 0.16, 4));
+        for (const side of [-1, 1]) {
+            const pivot = new THREE.Group();
+            pivot.position.set(side * 0.09, 0, 0.42);
+            const str = new THREE.Mesh(stringGeo, mat("m", 0xffffff));
+            str.position.y = -0.08;
+            const die = new THREE.Mesh(dieGeo, mat("m", side < 0 ? 0xff5a5a : 0xffffff));
+            die.position.y = -0.2;
+            die.rotation.y = side * 0.4;
+            pivot.add(str, die);
+            anim.swingers.push({ node: pivot, amp: 0.35, speed: 2.2 + side * 0.3, axis: "x" });
+            g.add(pivot);
+        }
+        return g;
+    },
+    sticker: () => {
+        const D = UFO_DIMS;
+        const g = new THREE.Group();
+        const plate = new THREE.Mesh(geo("box:0.26:0.09:0.01", () => new THREE.BoxGeometry(0.26, 0.09, 0.01)), mat("m", 0xffe36a));
+        const lineGeo = geo("box:0.2:0.014:0.012", () => new THREE.BoxGeometry(0.2, 0.014, 0.012));
+        const l1 = new THREE.Mesh(lineGeo, mat("m", 0x2a2418));
+        l1.position.y = 0.018;
+        const l2 = new THREE.Mesh(lineGeo, mat("m", 0x2a2418));
+        l2.position.y = -0.018;
+        l2.scale.x = 0.7;
+        g.add(plate, l1, l2);
+        // Lie flat on the sloped hull side: tilt the plate's normal outward and up.
+        const slope = Math.atan2(D.hullBottom - D.hullTop, D.hullH);
+        g.position.set(0, 0.005, (D.hullTop + D.hullBottom) / 2 + 0.03);
+        g.rotation.x = -slope * 0.9;
+        return g;
+    },
+    crown: () => {
+        const g = new THREE.Group();
+        const band = new THREE.Mesh(geo("torus:0.12:0.025", () => new THREE.TorusGeometry(0.12, 0.025, 8, 16)), mat("m", 0xffd35a));
+        band.rotation.x = Math.PI / 2;
+        g.add(band);
+        const spikeGeo = geo("cone:0.03:0.09", () => new THREE.ConeGeometry(0.03, 0.09, 6));
+        const gemGeo = geo("sph:0.02:6:4", () => new THREE.SphereGeometry(0.02, 6, 4));
+        for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2;
+            const spike = new THREE.Mesh(spikeGeo, mat("m", 0xffd35a));
+            spike.position.set(Math.cos(a) * 0.12, 0.05, Math.sin(a) * 0.12);
+            const gem = new THREE.Mesh(gemGeo, mat("m", [0xff5a5a, 0x5ad6ff, 0xa0ff6a, 0xff5ad6, 0xffffff][i]));
+            gem.position.set(Math.cos(a) * 0.12, 0.1, Math.sin(a) * 0.12);
+            g.add(spike, gem);
+        }
+        g.position.y = -0.01;
+        return g;
+    },
+};
+
+// Dress the UFO with the equipped Cosmetics. `looks` comes from
+// shopCatalog.resolveLooks. Safe to call repeatedly; it rebuilds the
+// cosmetics group and re-tags animations, then re-applies Refits so anything
+// they registered in `anim` survives.
+export function applyCosmetics(ufo, looks, upgrades = null) {
+    const { cosmetics } = ufo.userData;
+    clearGroup(cosmetics);
+    ufo.userData.anim = emptyUfoAnim();
+    applyHullLook(ufo, looks.hull);
+    applyBeamTint(ufo, looks.beamTint);
+    const build = ACCESSORY_BUILDERS[looks.accessory.kind] || ACCESSORY_BUILDERS.none;
+    const node = build(ufo.userData.anim);
+    if (node) {
+        const anchorName = looks.accessory.kind === "fuzzyDice" ? "underHull" : looks.accessory.kind === "sticker" ? "rimEdge" : "domeTop";
+        node.position.add(ufo.userData.anchors[anchorName].position);
+        node.userData.cosmetic = "accessory";
+        cosmetics.add(node);
+    }
+    if (upgrades) applyRefits(ufo, upgrades);
+}
+
+// ---- Refits ---------------------------------------------------------------
+// Visible growth at the Site caps (5 / 12 / 20). Cumulative: level 12 shows
+// the 5 and 12 details. The beam itself is left alone; it already widens.
+//
+// The Expedition camera looks down at the saucer from high up, and the whole
+// saucer is only ~100 px wide, so every Refit sits on the hull TOP surface,
+// the rim edge, or outside the hull silhouette, and nothing is thinner than
+// ~0.02 world units. Hull top is y = hullH/2 (0.08); the accessory anchor on
+// the dome top is left free so hats still fit.
+//
+// Layout zones seen from above (radius from centre):
+//   0.30-0.47  Scanner radar sweep (hull top)
+//   0.42       Core conduit ring + orbiting gems (hull top)
+//   0.50       Scanner sensor lights (hull top edge)
+//   0.60       Cloak rim strip (on the rim torus)
+//   0.70-0.80  Propulsion pods and cones (poking out of the rim)
+//   0.86       Cloak field plates (floating outside the hull)
+
+const HULL_TOP_Y = UFO_DIMS.hullH / 2;
+
+const REFIT_BUILDERS = {
+    core: [
+        // L5: a glowing purple conduit ring set into the hull top.
+        (g) => {
+            const ring = new THREE.Mesh(geo("torus:0.42:0.024", () => new THREE.TorusGeometry(0.42, 0.024, 6, 36)), glow(0xb040ff));
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = HULL_TOP_Y + 0.008;
+            g.add(ring);
+        },
+        // L12: three purple power gems riding the conduit ring.
+        (g, anim) => {
+            const octGeo = geo("oct:0.07", () => new THREE.OctahedronGeometry(0.07));
+            const m = glow(0xd769ff);
+            const carrier = new THREE.Group();
+            carrier.position.y = HULL_TOP_Y + 0.09;
+            for (let i = 0; i < 3; i++) {
+                const o = new THREE.Mesh(octGeo, m);
+                const a = (i / 3) * Math.PI * 2;
+                o.position.set(Math.cos(a) * 0.42, 0, Math.sin(a) * 0.42);
+                anim.spinners.push({ node: o, speed: 3 });
+                carrier.add(o);
+            }
+            anim.orbiters.push({ node: carrier, speed: 1.2 });
+            g.add(carrier);
+        },
+        // L20: a tilted reactor halo circling the dome, gently pulsing.
+        (g, anim) => {
+            const D = UFO_DIMS;
+            const pivot = new THREE.Group();
+            pivot.position.y = D.domeY + 0.17;
+            const halo = new THREE.Mesh(geo("torus:0.37:0.02", () => new THREE.TorusGeometry(0.37, 0.02, 6, 40)), glow(0xd769ff, 0.85));
+            halo.rotation.x = Math.PI / 2 + 0.42;
+            pivot.add(halo);
+            anim.orbiters.push({ node: pivot, speed: -0.9 });
+            anim.pulsers.push({ node: halo, base: 1, amp: 0.05, speed: 2.4 });
+            g.add(pivot);
+        },
+    ],
+    cloak: [
+        // L5: a thin blue light strip along the rim.
+        (g) => {
+            const strip = new THREE.Mesh(geo("torus:0.6:0.022", () => new THREE.TorusGeometry(0.6, 0.022, 6, 40)), glow(0x4ad0ff, 0.9));
+            strip.rotation.x = Math.PI / 2;
+            strip.position.y = 0.05;
+            g.add(strip);
+        },
+        // L12: four translucent field plates slowly circling outside the hull.
+        (g, anim) => {
+            const carrier = new THREE.Group();
+            carrier.position.y = -0.02;
+            const plateGeo = geo("torusArc:0.86:0.03", () => new THREE.TorusGeometry(0.86, 0.03, 6, 12, Math.PI / 4));
+            const m = new THREE.MeshLambertMaterial({
+                color: 0x9ae8ff, emissive: 0x4ad0ff, emissiveIntensity: 0.7,
+                transparent: true, opacity: 0.55, depthWrite: false,
+            });
+            for (let i = 0; i < 4; i++) {
+                const plate = new THREE.Mesh(plateGeo, m);
+                plate.rotation.x = Math.PI / 2;
+                plate.rotation.z = (i / 4) * Math.PI * 2 + Math.PI / 8;
+                carrier.add(plate);
+            }
+            anim.orbiters.push({ node: carrier, speed: 0.7 });
+            g.add(carrier);
+        },
+        // L20: the hull phases in and out while idle (solid while vacuuming).
+        (g, anim, ufo) => {
+            ufo.userData.cloakBreath = true;
+        },
+    ],
+    scanner: [
+        // L5: a small dish beside the dome with a cyan tip light.
+        (g, anim, ufo) => {
+            const a = ufo.userData.anchors.domeSide.position;
+            const dishG = new THREE.Group();
+            const stem = new THREE.Mesh(geo("cyl:0.014:0.014:0.08:6", () => new THREE.CylinderGeometry(0.014, 0.014, 0.08, 6)), mat("m", 0xdde4ea));
+            stem.position.y = 0.04;
+            const dish = new THREE.Mesh(geo("cyl:0.1:0.035:0.035:12", () => new THREE.CylinderGeometry(0.1, 0.035, 0.035, 12)), mat("m", 0xeef3f6));
+            dish.position.y = 0.09;
+            dish.rotation.x = 0.7;
+            const tip = new THREE.Mesh(geo("sph:0.024:6:4", () => new THREE.SphereGeometry(0.024, 6, 4)), glow(0x5ee6ff));
+            tip.position.set(0, 0.125, 0.055);
+            dishG.add(stem, dish, tip);
+            dishG.position.copy(a);
+            dishG.rotation.y = -0.6;
+            g.add(dishG);
+        },
+        // L12: a radar sweep line with a fading wedge, turning on the hull top.
+        (g, anim) => {
+            const arm = new THREE.Group();
+            arm.position.y = HULL_TOP_Y + 0.02;
+            const bar = new THREE.Mesh(geo("box:0.17:0.012:0.03", () => new THREE.BoxGeometry(0.17, 0.012, 0.03)), glow(0x5ee6ff));
+            bar.position.x = 0.385;
+            const wedge = new THREE.Mesh(
+                geo("ringSector:0.3:0.47", () => new THREE.RingGeometry(0.3, 0.47, 12, 1, -0.85, 0.85)),
+                new THREE.MeshBasicMaterial({ color: 0x5ee6ff, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }),
+            );
+            // RingGeometry lies in XY; lay it flat so the wedge trails behind the
+            // bar (arm turns +y, which carries +x toward -z).
+            wedge.rotation.x = -Math.PI / 2;
+            wedge.position.y = -0.008;
+            arm.add(bar, wedge);
+            anim.sweeps.push({ node: arm, speed: 2.4 });
+            g.add(arm);
+        },
+        // L20: six blinking cyan sensor lights around the hull top edge.
+        (g, anim) => {
+            const lightGeo = geo("sph:0.04:6:4", () => new THREE.SphereGeometry(0.04, 6, 4));
+            for (let i = 0; i < 6; i++) {
+                const m = glow(0x5ee6ff);
+                const l = new THREE.Mesh(lightGeo, m);
+                const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+                l.position.set(Math.cos(a) * 0.5, HULL_TOP_Y + 0.02, Math.sin(a) * 0.5);
+                anim.blinkers.push({ mat: m, period: 1.5, phase: i / 6 });
+                g.add(l);
+            }
+        },
+    ],
+    propulsion: [
+        // L5: engine pods on the left/right rim with orange exhaust cones.
+        (g, anim, ufo) => {
+            for (const side of [-1, 1]) {
+                addEnginePod(g, anim, ufo, side * Math.PI / 2, 0xff8a30, 0.75);
+            }
+        },
+        // L12: a second pair of pods fore/aft with slightly brighter cones.
+        (g, anim, ufo) => {
+            for (const side of [-1, 1]) {
+                addEnginePod(g, anim, ufo, side > 0 ? 0 : Math.PI, 0xffb040, 0.85);
+            }
+        },
+        // L20: cones stretch into flame trails while moving.
+        (g, anim) => {
+            for (const t of anim.thrusters) t.trail = true;
+        },
+    ],
+};
+
+// An engine pod sticking out of the rim, firing a flame cone outward. `yaw`
+// is the direction it points in the XZ plane (0 = +z).
+function addEnginePod(g, anim, ufo, yaw, color, scale) {
+    const pivot = new THREE.Group();
+    pivot.rotation.y = yaw;
+    pivot.position.y = -0.03;
+    const pod = new THREE.Mesh(geo("box:0.14:0.09:0.16", () => new THREE.BoxGeometry(0.14, 0.09, 0.16)), ufo.userData.mats.engine);
+    pod.position.z = 0.7;
+    const nozzle = new THREE.Mesh(geo("cyl:0.045:0.055:0.04:10", () => new THREE.CylinderGeometry(0.045, 0.055, 0.04, 10)), mat("m", 0x3a3438));
+    nozzle.rotation.x = Math.PI / 2;
+    nozzle.position.z = 0.79;
+    pivot.add(pod, nozzle);
+    addThruster(pivot, anim, 0, 0, 0.8, 0, color, scale);
+    g.add(pivot);
+}
+
+// A small flame cone pointing outward from an engine. `yaw` is the direction
+// it fires along in the XZ plane (0 = +z).
+function addThruster(g, anim, x, y, z, yaw, color, scale) {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, z);
+    pivot.rotation.y = yaw;
+    const cone = new THREE.Mesh(geo("cone:0.055:0.18", () => new THREE.ConeGeometry(0.055, 0.18, 8, 1, true)), glow(color, 0.85));
+    // Cone tip points +y; tilt so it fires along the pivot's +z (outward).
+    cone.rotation.x = Math.PI / 2;
+    cone.position.z = 0.09;
+    cone.scale.setScalar(scale);
+    pivot.add(cone);
+    anim.thrusters.push({ node: cone, base: scale, trail: false });
+    g.add(pivot);
+}
+
+export function applyRefits(ufo, upgrades) {
+    const { refits, anim, mats } = ufo.userData;
+    clearGroup(refits);
+    // Drop refit-owned animations while keeping cosmetic ones.
+    for (const key of Object.keys(anim)) {
+        anim[key] = anim[key].filter((entry) => !entry.refit);
+    }
+    ufo.userData.cloakBreath = false;
+    const scratch = emptyUfoAnim();
+    const thresholds = BALANCE.refitLevels;
+    for (const [system, builders] of Object.entries(REFIT_BUILDERS)) {
+        const lv = upgrades[system] || 1;
+        builders.forEach((build, i) => {
+            if (lv >= thresholds[i]) build(refits, scratch, ufo);
+        });
+    }
+    for (const key of Object.keys(scratch)) {
+        for (const entry of scratch[key]) {
+            entry.refit = true;
+            anim[key].push(entry);
+        }
+    }
+    const breath = ufo.userData.cloakBreath;
+    for (const m of [mats.hull, mats.rim, mats.engine]) {
+        m.transparent = breath;
+        if (!breath) m.opacity = 1;
+    }
+    if (!breath) mats.dome.opacity = 1;
+}
+
+// Advance every UFO animation (Cosmetics and Refits). `speed` is the UFO's
+// ground speed, `beamHeld` keeps a cloaked hull solid while vacuuming.
+export function animateUfo(ufo, dt, { speed = 0, beamHeld = false } = {}) {
+    const ud = ufo.userData;
+    ud.clock += dt;
+    const t = ud.clock;
+    const { anim, mats } = ud;
+    if (ud.rainbow) {
+        const hue = (t * 0.25) % 1;
+        mats.beam.color.setHSL(hue, 1, 0.65);
+        mats.ring.color.copy(mats.beam.color);
+        mats.emitter.color.copy(mats.beam.color);
+        mats.emitter.emissive.copy(mats.beam.color);
+    }
+    for (const s of anim.spinners) s.node.rotation.y += dt * s.speed;
+    for (const o of anim.orbiters) o.node.rotation[o.axis || "y"] += dt * o.speed;
+    for (const s of anim.sweeps) s.node.rotation.y += dt * s.speed;
+    for (const b of anim.blinkers) {
+        const on = ((t / b.period + b.phase) % 1) < 0.5;
+        b.mat.emissiveIntensity = on ? 1.1 : 0.12;
+    }
+    for (const s of anim.swingers) {
+        s.node.rotation[s.axis || "x"] = Math.sin(t * s.speed) * s.amp;
+    }
+    for (const p of anim.pulsers) {
+        p.node.scale.setScalar(p.base + Math.sin(t * p.speed) * p.amp);
+    }
+    for (const g of anim.glide) {
+        g.node.rotation.z += dt * g.speed;
+        g.node.position.y = Math.sin(t * 1.7) * g.wobble;
+    }
+    for (const th of anim.thrusters) {
+        const flick = 1 + Math.sin(t * 17 + th.node.position.z * 10) * 0.12;
+        const trail = th.trail ? 1 + Math.min(1.2, speed * 0.28) : 1;
+        th.node.scale.set(th.base * flick, th.base * flick * trail, th.base * flick);
+        th.node.position.z = 0.09 * th.base * flick * trail;
+    }
+    if (ud.cloakBreath) {
+        // Light phase shimmer: never drops far enough to lose the silhouette.
+        const target = beamHeld ? 1 : 0.76 + Math.sin(t * 1.3) * 0.12;
+        for (const m of [mats.hull, mats.rim, mats.engine, mats.dome]) {
+            m.opacity += (target - m.opacity) * Math.min(1, dt * 4);
+        }
+    }
 }
 
 function plane(w, d, color, x, y, z) {

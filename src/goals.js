@@ -15,7 +15,9 @@ function needFor(def, mapId) {
     return 3 + Math.floor(Math.random() * 3);
 }
 
-export function rollSessionGoal(mapId, coreLevel = 1, successfulExpeditions = 0) {
+// `excludeIds` keeps a freshly completed Expedition Goal from rolling the same
+// Specimens again; it is dropped when the Site pool is too small to honour it.
+export function rollSessionGoal(mapId, coreLevel = 1, successfulExpeditions = 0, excludeIds = []) {
     const cap = Math.max(1, coreLevel);
     let pool = targetsForMap(mapId).filter((d) => !d.rareEvent && !d.slotted && d.weightTier <= cap);
     if (pool.length < 2) {
@@ -24,6 +26,10 @@ export function rollSessionGoal(mapId, coreLevel = 1, successfulExpeditions = 0)
     if (!pool.length) {
         const fallback = TARGET_BY_ID.chicken;
         return [{ id: fallback.id, need: mapId === "farm" ? 6 : 12, have: 0 }];
+    }
+    if (excludeIds.length) {
+        const fresh = pool.filter((d) => !excludeIds.includes(d.id));
+        if (fresh.length >= 2) pool = fresh;
     }
     const living = pool.filter((d) => d.category === "living");
     const bag = (living.length >= 2 ? living : pool).slice();

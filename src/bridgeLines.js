@@ -143,6 +143,11 @@ export const TIPS = {
         mode: "note",
         line: "Gold glow means high value. Grab those first. The Council likes expensive.",
     },
+    refit: {
+        mode: "note",
+        place: "mid",
+        line: "Refit approved. New lights on the saucer. Decorative. Do not tell the Council.",
+    },
     menuReveal: {
         mode: "note",
         anchor: "#menu-tools",

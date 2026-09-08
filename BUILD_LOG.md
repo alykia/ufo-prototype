@@ -387,3 +387,89 @@ Issues / Observations:
 Next Iteration:
 Playtest the Training Expedition with real new players. Tune line lengths, the 4.5s auto-dismiss, the +25% Suspicion bump, and whether Quota 60 finishes inside two minutes.
 
+## Iteration 004 — Meteorite, Shop, Refits
+
+Date:
+2026-09-08
+
+AI Tool:
+Cursor
+
+Goal:
+Give Expedition Goals their own currency (Meteorite) and a place to spend it (the title-screen Shop, previously an EMPTY stub), keep goals rolling for the whole run, and make the five-system UFO visibly grow at each Site cap.
+
+Prompt / Instruction:
+Add a new "meteorite" currency paid by goals instead of Research; find a meteorite icon; show a "targets acquired!" popup with the amount and current total (keep the goal SFX); start a new goal right away; show Meteorite won on the success/fail screen; fill the Shop with UFOs, beams and funny accessories at prices that take a few runs; equip from the Shop with no inventory; give every UFO part except the beam a small visual change at levels 5, 12 and 20.
+
+Grilled decisions locked in this iteration:
+- Expedition Goal pays Meteorite only, flat per Site: Farm 10 / Town 15 / Zoo 25 (Training pays the Farm value). The Research Goal Bonus (`goalBonusFor`, 20% of Quota) is deleted, so a goal can no longer tip the Quota.
+- Meteorite is saved the moment a goal completes and is kept on failed and detected Expeditions; Research keeps banking only on success. ADR 0004 records this; ADR 0003 is amended because its "Session Research is always banked" sentence never matched the code.
+- After a goal completes a new one rolls at once with the same roller, excluding the species just completed when the pool allows, no difficulty ramp. Not during the Training Expedition, whose single chicken goal pays once.
+- Announcement: non-blocking TARGETS ACQUIRED! card (purple, slam-in, 1.8s, existing `goal` SFX) with `+N` and the new total, then the goal banner returns for 2.5s with the new set. Frozen with the world like the goal banner.
+- Meteorite balance shows on the result screen (`+N` for the run, on failure too), as a chip on the title SHOP button, and in the Shop header. Not on the Expedition HUD.
+- Icon: `Ore Amethyst.svg` copied (never moved) from Global Assets; shop card icons likewise copied from the Trail, Cone, Fan, Hat, Satellite Dish, Paw, Dice, Sticky Note, Crown and Rainbow packs. `iconData.js` regenerated from the icons folder with existing entries byte-identical.
+- Shop: three slots (Hulls, Beams, Extras), one equipped per slot, BUY auto-equips, tap an owned card to equip, free defaults always owned. Pure cosmetics. Live rotating 3D preview of the player's own UFO with equipped Cosmetics and current Refits; a Bridge line per item. Hidden on a fresh save through the existing `#menu.fresh` rule. Cosmetics never appear on the Management schematic.
+- Catalogue: Hulls Standard (free) / Brass Antique 150 / Stealth Black 200 / Candy Pink 200 / Golden Saucer 400. Beams Green (free) / Cyan 80 / Magenta 80 / Amber 80 / Rainbow 250 (hue cycles). Extras None (free) / Party Hat 60 / Propeller Cap 80 / Cowboy Hat 90 / Blinking Antenna 90 / Cat Ears 100 / Fuzzy Dice 100 / Bumper Sticker 100 / Tiny Crown 120.
+- Refits (cumulative, 3D UFO only, Beam untouched): Core L5 emitter ring, L12 three orbiting graviton octahedra, L20 pulsing core sphere + tilted halo. Cloak L5 blue rim strip, L12 slow translucent refraction ring, L20 hull opacity breathing (solid while the beam is held). Scanner L5 side dish, L12 rotating sweep arm just below the dome top so hats still fit, L20 six blinking rim lights. Propulsion L5 exhaust cones, L12 two extra engines with brighter cones, L20 cones stretch into flame trails with speed.
+- Management: REFIT toast with the part name at 5/12/20 and a one-shot `refit` Tip. `.growth` overlays now default to opacity 1 so levels 6–20 stay lit (they used to fall back to browser default only by accident of missing rules).
+- Glossary additions: Meteorite, Goal Bonus (redefined), Refit, Shop, Cosmetic, Equip; Extract and Banked Research corrected to "success only".
+
+Decisions Locked:
+
+- `createUfo` owns its materials (no shared cache) and exposes `userData.parts`, `mats`, `anchors` (domeTop / underHull / rimEdge / domeSide), `cosmetics` and `refits` groups
+- `applyCosmetics(ufo, looks, upgrades)` and `applyRefits(ufo, upgrades)` rebuild their groups; `animateUfo(ufo, dt, { speed, beamHeld })` drives every spinner, blinker, swinger, orbiter, pulser, sweep, thruster and the rainbow hue, shared by the Expedition and the Shop preview
+- Save v2 gains `meteorite` (clamped ≥ 0) and `cosmetics { owned, equipped }`; `validate` drops unknown ids and falls unowned equipped slots back to the free defaults
+- `expedition.goalBonus / goalReached` replaced by `goalPaid`, `goalsCompleted`, `meteoriteEarned`; Bridge quips read `goalsCompleted`
+- Debug keys: `M` +50 Meteorite, `G` fills the current goal
+- `#toasts` raised to z-index 9 so Management toasts (REFIT, Site unlocks) are visible
+
+What Was Built:
+`src/shopCatalog.js` (data + `resolveLooks`), `src/shopLines.js` (Bridge copy), `src/shop.js` (overlay, tabs, cards, buy/equip, second WebGL preview started on show and stopped on hide), Meteorite payout / continuous goal loop / acquired card / result chip / title chip in `src/main.js`, `excludeIds` in `src/goals.js`, UFO refactor plus Cosmetics, Refits and animator in `src/meshes.js`, `meteoritePerGoal` / `refitLevels` / card timings in `src/balance.js`, save fields and validation in `src/persist.js`, `refit` Tip in `src/bridgeLines.js`, markup and CSS for `#acquired-card`, `#shop-book` and `.meteorite-chip` in `index.html`, 14 icons copied into `assets/ui/icons`.
+
+Files Created / Changed:
+- src/shopCatalog.js (new)
+- src/shopLines.js (new)
+- src/shop.js (new)
+- src/main.js
+- src/goals.js
+- src/meshes.js
+- src/balance.js
+- src/persist.js
+- src/bridgeLines.js
+- src/bridgeQuips.js
+- src/uiIcons.js
+- src/iconData.js (regenerated)
+- assets/ui/icons/meteorite.svg, shop-*.svg (new, copied from Global Assets)
+- index.html
+- CONTEXT.md
+- docs/adr/0003-extract-and-save-v2.md (amended)
+- docs/adr/0004-meteorite-cosmetic-currency.md (new)
+- BUILD_LOG.md
+
+Testing:
+- `node --check` on every module; static server; no external requests during any run
+- Headless Chrome (SwiftShader) Playwright playthrough at 450×860: title chip shows the balance; Shop opens with balance, three tabs and card states (equipped / owned / buyable / poor); buying with too little Meteorite toasts NOT ENOUGH METEORITE and spends nothing; `M` then buy deducts, adds to `owned`, equips, flips the card to EQUIPPED and updates the preview and Bridge line; equip swap None → Party Hat round-trips; Rainbow beam and Golden Saucer bought and shown in the preview; reload keeps purchases and balance; fresh save hides SHOP; RESTART wipes Meteorite and Cosmetics; corrupt save (`meteorite: -5`, junk owned ids, unowned equipped) clamps to 0 and falls back to defaults
+- Goal loop: start banner shows `[meteorite] +10`; `G` completes the goal → TARGETS ACQUIRED! `+10`, TOTAL 10, goal row already shows a different species set; card hides at 1.8s and the banner returns with the new goals; second goal → TOTAL 20 with Quota still 0 / 290; early Extract → FAILED screen shows `[meteorite] +20`, save keeps 20 Meteorite and 0 Banked Research
+- Training: the chicken goal pays +10 and stays DONE without re-rolling; pressing `G` again does not pay twice
+- Refits: Core 4 → 5 in Management shows `REFIT: EMITTER RING` and the Bridge Tip; all systems at 20 render every Refit in the Shop preview and in the Expedition (cloak breathing, rim strip, refraction ring, orbiters, dish, sweep, rim lights, four engines with trails); `.growth` overlays report opacity 1 at level 20
+
+Issues / Observations:
+- The `menuReveal` Tip can appear over the open Shop on the first title visit after Onboarding because Shop is a title overlay; harmless but worth moving the Tip to fire before overlays open.
+- The Shop preview uses a second WebGL context; it is created lazily on first open and never disposed, which is fine for one page but should be watched on low-end phones.
+- Refits are small at gameplay camera distance by design; the Shop preview is where they read clearly.
+- No new SFX: buying reuses `upgrade`, equipping reuses `confirm`, deny reuses `deny`.
+
+Next Iteration:
+Playtest Meteorite income against prices (target: first Accessory after 2–3 runs, Golden Saucer after ~10), and check whether continuous goal re-rolls make long runs feel farmable.
+
+### 004a — Shop try-on and Refits readable in play
+
+- Shop: tapping any card (locked or not) now dresses the preview saucer with it and shows a PREVIEW tag over the canvas (`GOLDEN SAUCER + PARTY HAT` / `TAP AGAIN TO BUY`, `TAP AGAIN TO EQUIP`, `NEED n MORE METEORITE`). Tapping the same card again buys or equips. Previews are remembered per slot so hull + hat can be combined; tapping the equipped card reverts that slot; closing the Shop clears previews. Nothing is saved until the second tap.
+- Refits redesigned for the Expedition camera. The old Core L5/L12/L20 details hung under the hull and the Propulsion cones sat inside the hull frustum, so nothing showed in play (the report was "Core 5, no change"). Every Refit now lives on the hull top, the rim edge, or outside the silhouette, and nothing is thinner than ~0.02 units (the saucer is ~100 px wide in play):
+  - Core: L5 purple conduit ring on the hull top (r 0.42), L12 three power gems orbiting along that ring, L20 tilted reactor halo circling the dome.
+  - Cloak: L5 blue rim strip (thicker), L12 four translucent field plates circling outside the hull (the old torus spun about its own axis, invisibly), L20 phase shimmer softened to opacity 0.64–0.88 so the silhouette never drops out.
+  - Scanner: L5 dish (slightly larger), L12 radar sweep on the hull top with a trailing translucent wedge, L20 six blinking sensor lights on the hull top edge.
+  - Propulsion: L5 two engine pods poking out of the left/right rim with orange cones, L12 fore/aft pods, L20 flame trails capped at 2.2× so they stay tasteful.
+  - Dome top stays free for hats. REFIT toast labels renamed to match (CONDUIT RING, POWER GEMS, REACTOR HALO, RIM LIGHT STRIP, FIELD PLATES, PHASE SHIMMER, ENGINE PODS, FORE + AFT PODS).
+- Verified headless at 2× DPR: Core 5 alone reads as a purple ring in play; Scanner 12 alone shows the sweep; Propulsion 5 alone shows two pods; all four at 20 render in play and in the Shop preview with a Party Hat still fitting.
+

@@ -1,9 +1,12 @@
 import { BALANCE, SAVE_KEY_V1, SAVE_KEY_V2 } from "./balance.js";
 import { newestMap } from "./maps.js";
+import { SHOP_ITEM_BY_ID, SHOP_SLOTS, defaultEquipped } from "./shopCatalog.js";
 
 export function defaultPersistent() {
     return {
         bankedResearch: 0,
+        meteorite: 0,
+        cosmetics: defaultCosmetics(),
         upgrades: { core: 1, beam: 1, cloak: 1, scanner: 1, propulsion: 1 },
         discoveredSpecimens: [],
         unlockedMaps: ["farm"],
@@ -19,6 +22,29 @@ export function defaultPersistent() {
 
 export function defaultOnboarding() {
     return { done: false, skipped: false, floorUsed: false, seenTips: [] };
+}
+
+export function defaultCosmetics() {
+    return { owned: [], equipped: defaultEquipped() };
+}
+
+// Owned Cosmetics must exist in the catalogue; an equipped slot must point at
+// an item of that slot that is free or owned, otherwise it falls back to the
+// free default so a stale save can never reference a missing mesh.
+function validateCosmetics(raw) {
+    const base = defaultCosmetics();
+    if (!raw || typeof raw !== "object") return base;
+    const owned = Array.isArray(raw.owned)
+        ? raw.owned.filter((id) => typeof id === "string" && SHOP_ITEM_BY_ID[id] && SHOP_ITEM_BY_ID[id].price > 0)
+        : [];
+    const equipped = defaultEquipped();
+    const rawEq = raw.equipped && typeof raw.equipped === "object" ? raw.equipped : {};
+    for (const slot of SHOP_SLOTS) {
+        const id = rawEq[slot];
+        const def = typeof id === "string" ? SHOP_ITEM_BY_ID[id] : null;
+        if (def && def.slot === slot && (def.price === 0 || owned.includes(id))) equipped[slot] = id;
+    }
+    return { owned: Array.from(new Set(owned)), equipped };
 }
 
 function validateOnboarding(raw, hasPlayed) {
@@ -67,6 +93,8 @@ function validate(raw) {
         : newestMap(unlockedMaps);
     return {
         bankedResearch: Math.max(0, Number(raw.bankedResearch) || 0),
+        meteorite: Math.max(0, Math.round(Number(raw.meteorite) || 0)),
+        cosmetics: validateCosmetics(raw.cosmetics),
         upgrades: {
             core: clampLevel(upgrades.core),
             beam: clampLevel(upgrades.beam),

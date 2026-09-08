@@ -4,9 +4,10 @@ import {
     DEBUG,
     beamRadiusFor,
     calculateExpeditionQuota,
-    goalBonusFor,
     cloakSuspicionMultiplier,
     escalationBand,
+    isRefitLevel,
+    meteoriteFor,
     moveStats,
     pullDurationFor,
     scannerRareMultiplier,
@@ -16,7 +17,19 @@ import {
 import { TARGET_BY_ID, spawnWeightFor, targetsForMap } from "./targets.js";
 import { defaultOnboarding, defaultPersistent, loadPersistent, savePersistent } from "./persist.js";
 import { bindManagement } from "./management.js";
-import { createDebugHelpers, createPoliceCar, createSpecimenMesh, createUfo, setPlayfield, updateBlobShadow } from "./meshes.js";
+import {
+    animateUfo,
+    applyCosmetics,
+    applyRefits,
+    createDebugHelpers,
+    createPoliceCar,
+    createSpecimenMesh,
+    createUfo,
+    setPlayfield,
+    updateBlobShadow,
+} from "./meshes.js";
+import { resolveLooks } from "./shopCatalog.js";
+import { bindShop } from "./shop.js";
 import { headingY, nearRoad, pickRoute, setActiveRoutes } from "./roads.js";
 import { bindPickups, specimenIcon } from "./pickups.js";
 import { bindPolice } from "./police.js";
@@ -94,6 +107,10 @@ const els = {
     researchGoalStat: $("research-goal-stat"),
     researchPoliceStat: $("research-police-stat"),
     goalBonus: $("goal-bonus"),
+    acquiredCard: $("acquired-card"),
+    acquiredAmount: $("acquired-amount"),
+    acquiredTotal: $("acquired-total"),
+    menuMeteorite: $("menu-meteorite"),
     researchQuip: $("research-quip"),
     researchTitle: $("research-title"),
     researchHint: $("research-hint"),
@@ -132,6 +149,8 @@ let joyOriginX = 0;
 let joyOriginY = 0;
 let beamExtend = 0;
 let goalBannerUntil = 0;
+let acquiredUntil = 0;
+let pendingGoalBanner = false;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x152418);
@@ -158,6 +177,7 @@ applyPlayfield(resolvePlayMap());
 paintMapRow();
 const ufo = createUfo();
 scene.add(ufo);
+applyUfoLook();
 const debugHelpers = createDebugHelpers(scene);
 const police = bindPolice({
     scene,
@@ -201,6 +221,17 @@ const indexBook = bindIndexBook({
     specimenIcon,
 });
 
+const shop = bindShop({
+    root: $("shop-book"),
+    getPersist: () => persist,
+    onBuy: buyCosmetic,
+    onEquip: equipCosmetic,
+    onDeny: () => {
+        toast("NOT ENOUGH METEORITE", "warn", "meteorite");
+        playSfx("deny");
+    },
+});
+
 let confirmYes = null;
 
 function askConfirm({ title, hint, actionLabel, danger = true, onYes }) {
@@ -217,7 +248,7 @@ function askConfirm({ title, hint, actionLabel, danger = true, onYes }) {
 function askWipeConfirm() {
     askConfirm({
         title: "ALL THE PROGRESS WILL BE LOST, ARE YOU SURE?",
-        hint: "Banked Research, UFO systems, maps, discoveries and best stats will be wiped. Sound setting is kept.",
+        hint: "Banked Research, Meteorite, Shop purchases, UFO systems, maps, discoveries and best stats will be wiped. Sound setting is kept.",
         actionLabel: "RESTART",
         danger: true,
         onYes: resetProgress,
@@ -256,8 +287,9 @@ function emptyExpedition() {
         sessionResearch: 0,
         quota: calculateExpeditionQuota(1, 0),
         goals: [],
-        goalBonus: 0,
-        goalReached: false,
+        goalPaid: false,
+        goalsCompleted: 0,
+        meteoriteEarned: 0,
         quotaReached: false,
         sessionCatches: {},
         sessionNew: [],
@@ -317,6 +349,11 @@ function syncBeam() {
     applyBeamVisual();
 }
 
+// Dress the in-Expedition UFO with equipped Cosmetics and current Refits.
+function applyUfoLook() {
+    applyCosmetics(ufo, resolveLooks(persist.cosmetics.equipped), persist.upgrades);
+}
+
 function updateBeam(dt) {
     const want = isBeamHeld() ? 1 : 0;
     const rate = want > beamExtend ? 18 : 20;
@@ -347,7 +384,7 @@ function releaseFromBeam(spec) {
     updateBlobShadow(spec.mesh);
 }
 
-function showGoalBanner(goals, bonus = 0) {
+function showGoalBanner(goals, bonus = 0, duration = 3.8) {
     if (!els.goalBanner || !els.goalText) return;
     els.goalText.innerHTML = goals.map((g) => {
         const def = TARGET_BY_ID[g.id];
@@ -358,11 +395,45 @@ function showGoalBanner(goals, bonus = 0) {
     }).join("");
     if (els.goalBonus) {
         els.goalBonus.innerHTML = bonus > 0
-            ? `${uiIcon("trophy", "goal-bonus-icon")} +${bonus}`
+            ? `${uiIcon("meteorite", "goal-bonus-icon")} +${bonus}`
             : "";
     }
     els.goalBanner.classList.remove("hidden");
-    goalBannerUntil = 3.8;
+    goalBannerUntil = duration;
+}
+
+// Celebration card for a completed Expedition Goal: the Meteorite just paid
+// and the new total. Non-blocking; the world keeps running underneath.
+function showAcquired(amount, total) {
+    if (!els.acquiredCard) return;
+    if (els.acquiredAmount) els.acquiredAmount.innerHTML = `${uiIcon("meteorite", "acquired-icon")} +${amount}`;
+    if (els.acquiredTotal) els.acquiredTotal.innerHTML = `TOTAL ${uiIcon("meteorite")} ${total}`;
+    els.acquiredCard.classList.remove("hidden");
+    // Restart the pop animation when two goals complete back to back.
+    els.acquiredCard.style.animation = "none";
+    void els.acquiredCard.offsetWidth;
+    els.acquiredCard.style.animation = "";
+    acquiredUntil = BALANCE.acquiredDuration;
+}
+
+function hideAcquired() {
+    acquiredUntil = 0;
+    if (els.acquiredCard) els.acquiredCard.classList.add("hidden");
+}
+
+// Roll the next Expedition Goal after one completes, and queue its banner to
+// appear once the TARGETS ACQUIRED card has left.
+function rollNextGoal() {
+    const done = expedition.goals.map((g) => g.id);
+    expedition.goals = rollSessionGoal(
+        persist.selectedMap,
+        persist.upgrades.core,
+        persist.successfulExpeditions,
+        done,
+    );
+    expedition.goalPaid = false;
+    pendingGoalBanner = true;
+    for (const other of specimens) refreshLabel(other);
 }
 
 function goalSummary(goals = []) {
@@ -544,6 +615,12 @@ function syncMapUnlocks(announce) {
     return unlocked;
 }
 
+function paintMenuMeteorite() {
+    if (!els.menuMeteorite) return;
+    els.menuMeteorite.innerHTML = `${uiIcon("meteorite")}<span>${persist.meteorite}</span>`;
+    els.menuMeteorite.setAttribute("aria-label", `${persist.meteorite} Meteorite`);
+}
+
 function paintMapRow() {
     const row = $("map-row");
     if (!row) return;
@@ -577,6 +654,7 @@ function showMenu() {
     els.endScreen.classList.add("hidden");
     els.confirm.classList.add("hidden");
     indexBook.hide();
+    shop.hide();
     management.hide();
     hideResearchSuccess();
     pickups.clear();
@@ -590,6 +668,7 @@ function showMenu() {
     els.menu.classList.toggle("fresh", fresh);
     els.menuRestart.classList.toggle("hidden", fresh || !persist.hasPlayed);
     paintMapRow();
+    paintMenuMeteorite();
     syncHud();
     syncMusic();
     if (!fresh && persist.hasPlayed) onboarding.tip("menuReveal");
@@ -625,8 +704,6 @@ function startExpedition() {
             persist.successfulExpeditions,
         );
     }
-    expedition.goalBonus = goalBonusFor(expedition.quota);
-    expedition.goalReached = false;
     persist.hasPlayed = true;
     save();
     clearSpecimens();
@@ -654,8 +731,12 @@ function startExpedition() {
     els.endScreen.classList.add("hidden");
     management.hide();
     indexBook.hide();
+    shop.hide();
     hideResearchSuccess();
-    if (!training) showGoalBanner(expedition.goals, expedition.goalBonus);
+    hideAcquired();
+    pendingGoalBanner = false;
+    applyUfoLook();
+    if (!training) showGoalBanner(expedition.goals, meteoriteFor(persist.selectedMap));
     paintGoalRow();
     syncHud();
     // The welcome beat pauses the world; startTraining ran before the state
@@ -685,6 +766,8 @@ function endExpedition(reason) {
     if (!simRunning() && gameState !== STATE.ONBOARDING) return;
     const training = onboarding.isTraining();
     hideGoalBanner();
+    hideAcquired();
+    pendingGoalBanner = false;
     beamExtend = 0;
     applyBeamVisual();
     persist.hasPlayed = true;
@@ -707,9 +790,8 @@ function endExpedition(reason) {
             trainingRun.floorLine = true;
         }
     } else {
+        // Research is lost; Meteorite already paid mid-run is kept (ADR 0004).
         expedition.sessionResearch = 0;
-        expedition.goalReached = false;
-        expedition.goalBonus = 0;
     }
     save();
     gameState = STATE.EXPEDITION_RESULT;
@@ -733,6 +815,20 @@ function resultQuip() {
     }
     return bridgeQuip(expedition, persist.selectedMap)
         || "Earth remains poorly guarded and excellently stocked. Recommend repeat visit.";
+}
+
+// An Expedition Goal is filled: pay Meteorite (kept even if the run fails),
+// celebrate, and roll the next goal unless this is the scripted training run.
+function completeGoal() {
+    const amount = meteoriteFor(persist.selectedMap);
+    expedition.goalPaid = true;
+    expedition.goalsCompleted += 1;
+    expedition.meteoriteEarned += amount;
+    persist.meteorite += amount;
+    save();
+    showAcquired(amount, persist.meteorite);
+    playSfx("goal");
+    if (!onboarding.isTraining()) rollNextGoal();
 }
 
 function completeQuota() {
@@ -786,7 +882,10 @@ function showResearchSuccess() {
     els.researchSuccess.classList.toggle("detected", result === "detected");
     els.researchSuccess.classList.toggle("failed", result === "failed");
     if (els.researchTitle) els.researchTitle.innerHTML = titles[result] || titles.success;
-    if (els.researchHint) els.researchHint.textContent = hints[result] || hints.success;
+    if (els.researchHint) {
+        const keptMeteorite = result !== "success" && (expedition.meteoriteEarned || 0) > 0;
+        els.researchHint.textContent = (hints[result] || hints.success) + (keptMeteorite ? " Meteorite kept." : "");
+    }
     const catches = expedition.sessionCatches || {};
     const news = new Set(expedition.sessionNew || []);
     const rows = Object.keys(catches)
@@ -811,9 +910,8 @@ function showResearchSuccess() {
         els.researchQuotaStat.innerHTML = `${uiIcon("research")} ${expedition.sessionResearch} / ${expedition.quota}`;
     }
     if (els.researchGoalStat) {
-        const bonus = expedition.goalBonus || 0;
-        const got = expedition.goalReached && bonus > 0;
-        els.researchGoalStat.innerHTML = got ? `${uiIcon("trophy")} +${bonus}` : "";
+        const earned = expedition.meteoriteEarned || 0;
+        els.researchGoalStat.innerHTML = earned > 0 ? `${uiIcon("meteorite")} +${earned}` : "";
     }
     if (els.researchPoliceStat) {
         els.researchPoliceStat.innerHTML = `${uiIcon("police")} ${calls}`;
@@ -853,9 +951,45 @@ function buyUpgrade(system) {
     syncMapUnlocks(true);
     save();
     syncBeam();
+    applyRefits(ufo, persist.upgrades);
+    if (isRefitLevel(persist.upgrades[system]) && REFIT_NOTES[system]) {
+        toast(`REFIT: ${REFIT_NOTES[system][persist.upgrades[system]]}`, "rare", system);
+        onboarding.tip("refit");
+    }
     syncHud();
     paintMapRow();
     onboarding.event("upgraded");
+}
+
+// What each Refit adds to the UFO, keyed by system then level.
+const REFIT_NOTES = {
+    core: { 5: "CONDUIT RING", 12: "POWER GEMS", 20: "REACTOR HALO" },
+    cloak: { 5: "RIM LIGHT STRIP", 12: "FIELD PLATES", 20: "PHASE SHIMMER" },
+    scanner: { 5: "DISH INSTALLED", 12: "RADAR SWEEP", 20: "SENSOR LIGHTS" },
+    propulsion: { 5: "ENGINE PODS", 12: "FORE + AFT PODS", 20: "FLAME TRAILS" },
+};
+
+// Shop: spend Meteorite on a Cosmetic. Buying equips it straight away.
+function buyCosmetic(item) {
+    if (persist.meteorite < item.price || persist.cosmetics.owned.includes(item.id)) return false;
+    persist.meteorite -= item.price;
+    persist.cosmetics.owned.push(item.id);
+    persist.cosmetics.equipped[item.slot] = item.id;
+    save();
+    playSfx("upgrade");
+    applyUfoLook();
+    paintMenuMeteorite();
+    return true;
+}
+
+function equipCosmetic(item) {
+    const owned = item.price === 0 || persist.cosmetics.owned.includes(item.id);
+    if (!owned) return false;
+    persist.cosmetics.equipped[item.slot] = item.id;
+    save();
+    playSfx("confirm");
+    applyUfoLook();
+    return true;
 }
 
 function resetProgress() {
@@ -867,6 +1001,7 @@ function resetProgress() {
     save();
     clearSpecimens();
     applyPlayfield("farm");
+    applyUfoLook();
     paintMapRow();
     showMenu();
 }
@@ -1159,13 +1294,7 @@ function finishAbduction(spec, stats) {
         if (creditGoal(expedition.goals, spec.def.id)) {
             for (const other of specimens) refreshLabel(other);
         }
-        if (goalFilled(expedition.goals) && !expedition.goalReached) {
-            expedition.goalReached = true;
-            const bonus = expedition.goalBonus || 0;
-            if (bonus > 0) expedition.sessionResearch += bonus;
-            toast(bonus > 0 ? `+${bonus}` : "DONE", "", "check");
-            playSfx("goal");
-        }
+        if (goalFilled(expedition.goals) && !expedition.goalPaid) completeGoal();
         paintGoalRow();
         onboarding.event("abducted");
         if (expedition.sessionResearch >= expedition.quota) {
@@ -1330,6 +1459,7 @@ function updateUfo(dt, stats) {
     ufo.rotation.y += dt * BALANCE.ufoYawSpeed;
     ufo.rotation.z = THREE.MathUtils.clamp(-ufoVel.x * 0.035, -0.14, 0.14);
     ufo.rotation.x = THREE.MathUtils.clamp(ufoVel.y * 0.025, -0.1, 0.1);
+    animateUfo(ufo, dt, { speed: spd, beamHeld: isBeamHeld() });
     if (debugHelpers.userData.beamGuide) {
         debugHelpers.userData.beamGuide.position.set(ufo.position.x, 0.04, ufo.position.z);
     }
@@ -1365,6 +1495,16 @@ function updateWorld(dt) {
     if (goalBannerUntil > 0) {
         goalBannerUntil = Math.max(0, goalBannerUntil - dt);
         if (goalBannerUntil <= 0) hideGoalBanner();
+    }
+    if (acquiredUntil > 0) {
+        acquiredUntil = Math.max(0, acquiredUntil - dt);
+        if (acquiredUntil <= 0) {
+            hideAcquired();
+            if (pendingGoalBanner) {
+                pendingGoalBanner = false;
+                showGoalBanner(expedition.goals, meteoriteFor(persist.selectedMap), BALANCE.goalRebannerDuration);
+            }
+        }
     }
     updateSpecimens(dt, stats);
     const cops = police.update(dt, ufo, expedition.suspicion, stats.cloakMul, (amt) => {
@@ -1561,10 +1701,7 @@ function bindShell() {
         playSfx("confirm");
     });
     $("menu-restart").addEventListener("click", () => askWipeConfirm());
-    $("menu-shop").addEventListener("click", () => {
-        toast("EMPTY", "", "shop");
-        playSfx("deny");
-    });
+    $("menu-shop").addEventListener("click", () => shop.show());
     $("menu-settings").addEventListener("click", () => openSettings(STATE.MENU));
     els.settingsBtn.addEventListener("click", () => openSettings(gameState));
     $("open-management").addEventListener("click", () => openManagement());
@@ -1602,7 +1739,7 @@ function bindShell() {
     stage.addEventListener("click", (ev) => {
         const btn = ev.target.closest("button");
         if (!btn || btn.disabled) return;
-        if (btn.id === "sound-toggle" || btn.id === "menu-shop" || btn.closest("#map-row")) return;
+        if (btn.id === "sound-toggle" || btn.closest("#map-row") || btn.closest("#shop-grid")) return;
         playSfx("tap");
     }, true);
 }
@@ -1755,6 +1892,17 @@ function onDebugKey(ev) {
     if (ev.key === "u" || ev.key === "U") {
         persist.bankedResearch += 100;
         save();
+    }
+    if (ev.key === "m" || ev.key === "M") {
+        persist.meteorite += 50;
+        save();
+        paintMenuMeteorite();
+        shop.refresh();
+    }
+    if ((ev.key === "g" || ev.key === "G") && simRunning() && expedition.goals.length && !expedition.goalPaid) {
+        for (const g of expedition.goals) g.have = g.need;
+        completeGoal();
+        paintGoalRow();
     }
     if (ev.key === "s" || ev.key === "S") expedition.suspicion = Math.min(100, expedition.suspicion + 10);
     if (ev.key === "q" || ev.key === "Q") {
