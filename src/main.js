@@ -38,7 +38,7 @@ import { bridgeQuip } from "./bridgeQuips.js";
 import { FLOOR_LINE, TRAINING_RESULT_LINE } from "./bridgeLines.js";
 import { ALIEN_SVG, bindOnboarding } from "./onboarding.js";
 import { hydrateIcons, uiIcon } from "./uiIcons.js";
-import { bindMenuMusicUnlock, setMenuMusic } from "./audio.js";
+import { bindMusicUnlock, setMusic, setMusicVolume } from "./audio.js";
 
 const STATE = {
     MENU: "MENU",
@@ -243,7 +243,8 @@ const onboarding = bindOnboarding({
 if (els.endAlien) els.endAlien.innerHTML = ALIEN_SVG;
 
 bindShell();
-bindMenuMusicUnlock();
+bindMusicUnlock();
+setMusicVolume(persist.settings.musicVolume);
 resize();
 showMenu();
 requestAnimationFrame(tick);
@@ -586,7 +587,7 @@ function showMenu() {
     els.menuRestart.classList.toggle("hidden", fresh || !persist.hasPlayed);
     paintMapRow();
     syncHud();
-    syncMenuMusic();
+    syncMusic();
     if (!fresh && persist.hasPlayed) onboarding.tip("menuReveal");
 }
 
@@ -656,7 +657,7 @@ function startExpedition() {
     // The welcome beat pauses the world; startTraining ran before the state
     // flipped to EXPEDITION, so apply the hold now that the sim is live.
     if (training && onboarding.hasBubble()) holdWorld(true);
-    syncMenuMusic({ restart: true });
+    syncMusic({ restart: true });
 }
 
 function seedField() {
@@ -705,7 +706,7 @@ function endExpedition(reason) {
     endJoystick();
     onboarding.event("expeditionEnd");
     showResearchSuccess();
-    syncMenuMusic();
+    syncMusic({ restart: true });
 }
 
 function resultQuip() {
@@ -732,7 +733,7 @@ function openManagement() {
     hideResearchSuccess();
     management.show();
     onboarding.event("management");
-    syncMenuMusic();
+    syncMusic();
 }
 
 function hideResearchSuccess() {
@@ -835,8 +836,10 @@ function buyUpgrade(system) {
 
 function resetProgress() {
     const soundOn = persist.settings.soundOn;
+    const musicVolume = persist.settings.musicVolume;
     persist = defaultPersistent();
     persist.settings.soundOn = soundOn;
+    persist.settings.musicVolume = musicVolume;
     save();
     clearSpecimens();
     applyPlayfield("farm");
@@ -1577,6 +1580,13 @@ function openSettings(from) {
           ${uiIcon(persist.settings.soundOn ? "sound" : "soundOff")}
         </button>
       </div>
+      <div class="setting-volume">
+        <div class="setting-row">
+          <span>Music</span>
+          <span id="music-volume-pct">${Math.round(persist.settings.musicVolume * 100)}%</span>
+        </div>
+        <input id="music-volume" type="range" min="0" max="100" step="1" value="${Math.round(persist.settings.musicVolume * 100)}" aria-label="Music volume" />
+      </div>
       ${onTitle && persist.onboarding.done ? `<button id="replay-tutorial" type="button">REPLAY TUTORIAL</button>` : ""}
       <button id="delete-progress" type="button">DELETE PROGRESS</button>
       <button id="main-menu" type="button">MAIN MENU</button>
@@ -1597,7 +1607,20 @@ function openSettings(from) {
         const on = persist.settings.soundOn;
         $("sound-toggle").innerHTML = uiIcon(on ? "sound" : "soundOff");
         $("sound-toggle").setAttribute("aria-label", on ? "Sound on" : "Sound off");
-        syncMenuMusic();
+        syncMusic();
+    });
+    const volumeSlider = $("music-volume");
+    const volumePct = $("music-volume-pct");
+    const applyVolume = () => {
+        const vol = Number(volumeSlider.value) / 100;
+        persist.settings.musicVolume = vol;
+        volumePct.textContent = `${Math.round(vol * 100)}%`;
+        setMusicVolume(vol);
+    };
+    volumeSlider.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+    volumeSlider.addEventListener("input", () => {
+        applyVolume();
+        save();
     });
     $("delete-progress").addEventListener("click", () => askWipeConfirm());
     $("main-menu").addEventListener("click", () => {
@@ -1605,7 +1628,7 @@ function openSettings(from) {
         showMenu();
     });
     $("close-settings").addEventListener("click", closeSettings);
-    syncMenuMusic();
+    syncMusic();
 }
 
 function closeSettings() {
@@ -1614,18 +1637,25 @@ function closeSettings() {
     gameState = settingsReturn === STATE.SETTINGS ? STATE.MENU : settingsReturn;
     if (gameState === STATE.MENU) showMenu();
     syncHud();
-    syncMenuMusic();
+    syncMusic();
 }
 
-function menuMusicWanted() {
-    if (!persist.settings.soundOn) return false;
-    if (gameState === STATE.MENU) return true;
-    if (gameState === STATE.SETTINGS && settingsReturn === STATE.MENU) return true;
-    return false;
+function musicWanted() {
+    if (!persist.settings.soundOn) return null;
+    if (gameState === STATE.MENU) return "menu";
+    if (gameState === STATE.SETTINGS && settingsReturn === STATE.MENU) return "menu";
+    if (gameState === STATE.EXPEDITION || gameState === STATE.RARE_EVENT || gameState === STATE.ONBOARDING) {
+        return "play";
+    }
+    if (gameState === STATE.SETTINGS) {
+        const from = settingsReturn;
+        if (from === STATE.EXPEDITION || from === STATE.RARE_EVENT || from === STATE.ONBOARDING) return "play";
+    }
+    return null;
 }
 
-function syncMenuMusic(opts) {
-    setMenuMusic(menuMusicWanted(), opts);
+function syncMusic(opts) {
+    setMusic(musicWanted(), opts);
 }
 
 function applyDebugJoyKeys(ev, down) {

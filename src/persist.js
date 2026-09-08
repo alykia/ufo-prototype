@@ -13,7 +13,7 @@ export function defaultPersistent() {
         failedExpeditions: 0,
         hasPlayed: false,
         onboarding: defaultOnboarding(),
-        settings: { soundOn: true },
+        settings: { soundOn: true, musicVolume: 1 },
     };
 }
 
@@ -46,6 +46,12 @@ function clampLevel(n) {
     const v = Number(n);
     if (!Number.isFinite(v)) return 1;
     return Math.min(BALANCE.hardSystemCap, Math.max(1, Math.round(v)));
+}
+
+function clampMusicVolume(n) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return 1;
+    return Math.min(1, Math.max(0, v));
 }
 
 function validate(raw) {
@@ -82,6 +88,7 @@ function validate(raw) {
             soundOn: raw.settings && typeof raw.settings.soundOn === "boolean"
                 ? raw.settings.soundOn
                 : raw.soundOn !== false,
+            musicVolume: clampMusicVolume(raw.settings && raw.settings.musicVolume),
         },
     };
 }

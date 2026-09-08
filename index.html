@@ -657,6 +657,23 @@
       margin-bottom: 10px;
       font-weight: 700;
     }
+    .setting-volume { margin-bottom: 12px; }
+    .setting-volume .setting-row { margin-bottom: 2px; }
+    #music-volume-pct {
+      min-width: 3em;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: #d6ff6a;
+    }
+    #music-volume {
+      display: block;
+      width: 100%;
+      height: 44px;
+      margin: 0;
+      accent-color: #d6ff6a;
+      touch-action: pan-x;
+      cursor: pointer;
+    }
     #sound-toggle, #delete-progress, #close-settings, #confirm-cancel, #confirm-delete {
       min-height: 44px;
       padding: 10px 12px;
@@ -1079,6 +1096,13 @@
       align-items: center;
       margin-bottom: 22px;
     }
+    #menu-saucer {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: menu-ufo-hover 5.6s ease-in-out infinite;
+    }
     #menu-logo {
       position: relative;
       z-index: 2;
@@ -1104,6 +1128,20 @@
       );
       clip-path: polygon(42% 0, 58% 0, 92% 100%, 8% 100%);
       filter: blur(2px);
+      animation: menu-beam-glow 2.8s ease-in-out infinite;
+    }
+    @keyframes menu-ufo-hover {
+      0%, 100% { transform: translate(0, 0) rotate(-1.2deg); }
+      22% { transform: translate(6px, -7px) rotate(1.6deg); }
+      48% { transform: translate(-5px, -2px) rotate(-2deg); }
+      74% { transform: translate(4px, -9px) rotate(0.8deg); }
+    }
+    @keyframes menu-beam-glow {
+      0%, 100% { opacity: 0.78; }
+      50% { opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #menu-saucer, #menu-beam { animation: none; }
     }
     #menu-title {
       position: relative;
@@ -1689,9 +1727,11 @@
     </div>
     <div id="menu">
       <div id="menu-brand">
-      <div id="menu-beam" aria-hidden="true"></div>
-      <div id="menu-logo" aria-hidden="true">
+      <div id="menu-saucer" aria-hidden="true">
+      <div id="menu-beam"></div>
+      <div id="menu-logo">
         <img class="ui-icon" data-icon="ufo" alt="" />
+      </div>
       </div>
       <h1 id="menu-title">
         <span class="visually-hidden">Project: Yoink!</span>
@@ -1743,7 +1783,7 @@
     <div id="confirm" class="hidden">
       <div class="panel">
         <h2 id="confirm-title">ALL THE PROGRESS WILL BE LOST, ARE YOU SURE?</h2>
-        <p class="hint" id="confirm-hint">Banked Research, UFO systems, maps, discoveries and best stats will be wiped. Sound setting is kept.</p>
+        <p class="hint" id="confirm-hint">Banked Research, UFO systems, maps, discoveries and best stats will be wiped. Sound settings are kept.</p>
         <button id="confirm-cancel" type="button">CANCEL</button>
         <button id="confirm-delete" type="button">RESTART</button>
       </div>
