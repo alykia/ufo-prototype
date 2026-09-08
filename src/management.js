@@ -46,6 +46,49 @@ export function bindManagement({ els, getPersist, onUpgrade, onNext, onOpen }) {
         }
     }
 
+    const LEAD_EDGES = {
+        scanner: "bottom",
+        core: "top",
+        beam: "right",
+    };
+
+    function boxPoint(el, box, where) {
+        const r = el.getBoundingClientRect();
+        let x = r.left + r.width / 2;
+        let y = r.top + r.height / 2;
+        if (where === "top") y = r.top;
+        if (where === "bottom") y = r.bottom;
+        if (where === "left") x = r.left;
+        if (where === "right") x = r.right;
+        return {
+            x: ((x - box.left) / box.width) * 100,
+            y: ((y - box.top) / box.height) * 100,
+        };
+    }
+
+    function layoutLeads() {
+        const svg = document.getElementById("saucer-leads");
+        if (!svg || els.root.classList.contains("hidden")) return;
+        const box = els.saucer.getBoundingClientRect();
+        if (box.width < 8 || box.height < 8) return;
+        for (const [system, edge] of Object.entries(LEAD_EDGES)) {
+            const btn = els.saucer.querySelector(`[data-system="${system}"]`);
+            const node = els.saucer.querySelector(`.lead-node[data-lead="${system}"]`);
+            const line = svg.querySelector(`line[data-lead="${system}"]`);
+            if (!btn || !node || !line) continue;
+            const from = boxPoint(btn, box, edge);
+            const to = boxPoint(node, box, "center");
+            line.setAttribute("x1", from.x.toFixed(2));
+            line.setAttribute("y1", from.y.toFixed(2));
+            line.setAttribute("x2", to.x.toFixed(2));
+            line.setAttribute("y2", to.y.toFixed(2));
+        }
+    }
+
+    function scheduleLeads() {
+        requestAnimationFrame(() => requestAnimationFrame(layoutLeads));
+    }
+
     function paintStatus(p) {
         els.banked.innerHTML = `${uiIcon("research")}${p.bankedResearch}`;
         els.statCore.innerHTML = `${uiIcon("core")}${p.upgrades.core}`;
@@ -86,12 +129,14 @@ export function bindManagement({ els, getPersist, onUpgrade, onNext, onOpen }) {
         paintSaucer(p.upgrades);
         paintStatus(p);
         paintPanel(p);
+        scheduleLeads();
     }
 
     function show() {
         els.root.classList.remove("hidden");
         openSystem = null;
         refresh();
+        scheduleLeads();
     }
 
     function hide() {
@@ -120,6 +165,11 @@ export function bindManagement({ els, getPersist, onUpgrade, onNext, onOpen }) {
     });
 
     els.nextBtn.addEventListener("click", () => onNext());
+
+    if (typeof ResizeObserver !== "undefined") {
+        new ResizeObserver(() => layoutLeads()).observe(els.saucer);
+    }
+    window.addEventListener("resize", scheduleLeads);
 
     return { show, hide, refresh };
 }
